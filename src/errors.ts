@@ -1,15 +1,15 @@
 import type { AppError, AppErrorCode } from './types';
 
 const TABLE: Record<AppErrorCode, Omit<AppError, 'code'>> = {
-  INSECURE_CONTEXT: { message: 'Откройте приложение по ссылке, которая начинается с https://', recoverable: false, action: 'none' },
-  CAMERA_DENIED: { message: 'Нет доступа к камере. Разрешите его в настройках браузера и нажмите «Повторить»', recoverable: true, action: 'open_settings' },
-  CAMERA_NOT_FOUND: { message: 'Камера не найдена. Подключите камеру или откройте приложение на телефоне', recoverable: true, action: 'retry' },
-  CAMERA_BUSY: { message: 'Камера занята другим приложением. Закройте его и нажмите «Повторить»', recoverable: true, action: 'retry' },
-  MODEL_LOAD: { message: 'Не получилось загрузить модель. Проверьте интернет и нажмите «Повторить»', recoverable: true, action: 'retry' },
+  INSECURE_CONTEXT: { message: 'Открой приложение по ссылке, которая начинается с https://', recoverable: false, action: 'none' },
+  CAMERA_DENIED: { message: 'Нет доступа к камере. Разреши его в настройках браузера и нажми «Повторить»', recoverable: true, action: 'open_settings' },
+  CAMERA_NOT_FOUND: { message: 'Камера не найдена. Подключи камеру или открой приложение на телефоне', recoverable: true, action: 'retry' },
+  CAMERA_BUSY: { message: 'Камера занята другим приложением или отключилась. Закрой другое приложение и нажми «Повторить»', recoverable: true, action: 'retry' },
+  MODEL_LOAD: { message: 'Не получилось загрузить модель. Проверь интернет и нажми «Повторить»', recoverable: true, action: 'retry' },
   FILE_FORMAT: { message: 'Нужен файл MP4 или WebM не длиннее 2 минут', recoverable: true, action: 'retry' },
   LIMIT: { message: 'Нужен файл MP4 или WebM не длиннее 2 минут', recoverable: true, action: 'retry' },
   STORAGE_UNAVAILABLE: { message: 'История недоступна в этом окне браузера. Тренироваться можно, но результат не сохранится', recoverable: false, action: 'none' },
-  STORAGE_FULL: { message: 'Не хватает места для истории. Выгрузите её в CSV и очистите', recoverable: false, action: 'none' },
+  STORAGE_FULL: { message: 'Не хватает места для истории. Выгрузи её в CSV и очисти', recoverable: false, action: 'none' },
   VALIDATION: { message: 'Не удалось сохранить подход', recoverable: false, action: 'none' },
   CONFIG: { message: 'Ошибка настроек приложения', recoverable: true, action: 'reload' },
 };

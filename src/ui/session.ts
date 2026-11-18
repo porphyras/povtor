@@ -29,6 +29,16 @@ function statusText(ex: Exercise, s: Status | null, phase: Phase): string {
   return 'Вижу целиком';
 }
 
+/** Что сказать голосом при смене статуса на подготовке: с 2–3 метров текст не прочесть. */
+function statusVoice(ex: Exercise, s: Status | null, phase: Phase): string | null {
+  if (s === 'NOT_VISIBLE') return 'Отойди дальше, не вижу тебя целиком';
+  if (s === 'WRONG_POSITION') return ex === 'pushup' && phase === 'counting' ? 'Прими упор лёжа боком' : 'Встань боком к камере';
+  return null;
+}
+
+type WakeLockSentinelLike = { release(): Promise<void> };
+type NavigatorWithWakeLock = Navigator & { wakeLock?: { request(type: 'screen'): Promise<WakeLockSentinelLike> } };
+
 function uuid(): string {
   if (crypto.randomUUID) return crypto.randomUUID();
   const b = crypto.getRandomValues(new Uint8Array(16));
@@ -56,7 +66,9 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   const tip = h('div', { class: 'tip hidden', id: 'tip', role: 'status' });
   const paused = h('div', { class: 'paused hidden' }, h('p', null, 'Не вижу тебя целиком'));
   const statusPill = h('div', { class: 'pill', id: 'status' }, '…');
-  const prepare = h('div', { class: 'prepare hidden' }, svg(SILHOUETTE[exercise]), h('p', { class: 'hint' }, HINT[exercise]), statusPill);
+  const silhouette = svg(SILHOUETTE[exercise]);
+  const hintEl = h('p', { class: 'hint' }, HINT[exercise]);
+  const prepare = h('div', { class: 'prepare hidden' }, silhouette, hintEl, statusPill);
   const countdownEl = h('div', { class: 'countdown hidden', id: 'countdown' });
   const loadingText = h('p', null, 'Загружаем модель…');
   const bar = h('div', { class: 'bar-fill' });
@@ -72,7 +84,7 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   const top = h(
     'div',
     { class: 'topbar' },
-    h('button', { class: 'icon-btn', 'aria-label': 'Назад', onclick: () => leave() }, '✕'),
+    h('button', { class: 'icon-btn', 'aria-label': 'Назад', onclick: () => back() }, '✕'),
     h('span', { class: 'title' }, EXERCISE_NAME[exercise]),
     fileMode ? (dev.dev ? h('span', { class: 'badge' }, 'видеофайл') : null) : switchBtn,
   );
@@ -92,7 +104,8 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   let countStartWall = 0;
   let lastT = 0;
   let tipTimer = 0;
-  let wakeLock: { release(): Promise<void> } | null = null;
+  let wakeLock: WakeLockSentinelLike | null = null;
+  let lastStatusVoiceAt = -Infinity;
   let gen = 0; // поколение запуска: после перезапуска старые циклы кадров останавливаются
   const fpsTimes: number[] = [];
   hook.events = [];
@@ -112,6 +125,7 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     show(countdownEl, p === 'countdown');
     show(counter, p === 'counting');
     show(finishBtn, p === 'counting');
+    show(switchBtn, p === 'prepare' || p === 'countdown');
     if (p !== 'counting') show(paused, false);
   }
 
@@ -121,7 +135,7 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     errorBox.append(h('h2', null, 'Что-то пошло не так'), h('p', null, err.message));
     if (err.code === 'CAMERA_DENIED') {
       errorBox.append(
-        h('p', { class: 'small' }, 'Chrome и Яндекс Браузер: значок камеры или замка в адресной строке → «Разрешить». Safari на iPhone: «аА» в адресной строке → «Настройки веб-сайта» → «Камера» → «Разрешить».'),
+        h('p', { class: 'small' }, 'Chrome и Яндекс Браузер: нажми значок камеры или замка в адресной строке → «Разрешить». Safari на iPhone: «аА» в адресной строке → «Настройки веб-сайта» → «Камера» → «Разрешить».'),
       );
     }
     const btns = h('div', { class: 'btns' });
@@ -157,11 +171,16 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
         stream = await startCamera({ facingMode: facing, ...config.camera });
         if (stopped) return stopStream(stream);
         await attachStream(video, stream);
+        const track = stream.getVideoTracks()[0];
+        track?.addEventListener('ended', () => {
+          if (my === gen && !stopped && !finalized) showError(appError(new PovtorError('CAMERA_BUSY', 'track ended'), 'CAMERA_BUSY'));
+        });
+        // зеркалим всё, кроме основной камеры телефона (у веб-камер ноутбуков facingMode обычно не указан)
+        view.classList.toggle('mirror', track?.getSettings().facingMode !== 'environment');
+        void requestWakeLock();
       }
       if (stopped) return;
-      view.classList.toggle('mirror', !fileMode && facing === 'user');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
+      fitCanvas();
       analyzer = createAnalyzer(exercise, config);
       status = null;
       setPhase('prepare');
@@ -189,7 +208,7 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   }
 
   async function switchCamera() {
-    if (fileMode || phase === 'loading') return;
+    if (fileMode || (phase !== 'prepare' && phase !== 'countdown')) return;
     facing = facing === 'user' ? 'environment' : 'user';
     restart();
   }
@@ -201,14 +220,20 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     if (typeof v.requestVideoFrameCallback === 'function') {
       v.requestVideoFrameCallback((_now, meta) => {
         if (my !== gen) return;
-        tick(fileMode ? meta.mediaTime * 1000 : performance.now());
-        schedule(my);
+        try {
+          tick(fileMode ? meta.mediaTime * 1000 : performance.now());
+        } finally {
+          schedule(my);
+        }
       });
     } else {
       requestAnimationFrame(() => {
         if (my !== gen) return;
-        tick(fileMode ? video.currentTime * 1000 : performance.now());
-        schedule(my);
+        try {
+          tick(fileMode ? video.currentTime * 1000 : performance.now());
+        } finally {
+          schedule(my);
+        }
       });
     }
   }
@@ -220,16 +245,31 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     for (let t = 0; t <= video.duration && !stopped && !finalized && my === gen; t += dt) {
       video.currentTime = t;
       await new Promise<void>((r) => video.addEventListener('seeked', () => r(), { once: true }));
-      tick(t * 1000);
+      try {
+        tick(t * 1000);
+      } catch (e) {
+        console.error('tick', e);
+      }
       await new Promise((r) => setTimeout(r, 0));
     }
     if (!stopped && !finalized && my === gen) void finalize('user');
+  }
+
+  /** Холст скелета повторяет размер кадра: телефон для отжиманий поворачивают уже после старта. */
+  function fitCanvas() {
+    const w = video.videoWidth || 640;
+    const h = video.videoHeight || 480;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
   }
 
   function tick(tA: number) {
     if (stopped || finalized || !engine || video.readyState < 2) return;
     if (!(tA > lastT)) return;
     lastT = tA;
+    fitCanvas();
     const frame = engine.detect(video);
     if (frame) frame.tMs = tA;
     // частота обработки за последнюю секунду
@@ -271,8 +311,19 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     setPhase('counting');
     counter.textContent = '0';
     app.voice.say('Начали');
-    const nav = navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<{ release(): Promise<void> }> } };
-    nav.wakeLock?.request('screen').then((l) => (wakeLock = l)).catch(() => undefined);
+  }
+
+  /** Экран не должен гаснуть с подготовки и до конца подхода. */
+  async function requestWakeLock() {
+    const nav = navigator as NavigatorWithWakeLock;
+    if (!nav.wakeLock || wakeLock || document.hidden) return;
+    try {
+      const lock = await nav.wakeLock.request('screen');
+      if (stopped) await lock.release().catch(() => undefined);
+      else wakeLock = lock;
+    } catch {
+      /* не поддерживается или запрещено */
+    }
   }
 
   function handle(events: AnalyzerEvent[], tA: number) {
@@ -283,6 +334,14 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
         status = e.status;
         statusPill.textContent = statusText(exercise, status, phase);
         statusPill.classList.toggle('ok', status === 'OK');
+        // человек найден — силуэт и длинная подсказка больше не нужны
+        show(silhouette as unknown as HTMLElement, status !== 'OK');
+        show(hintEl, status !== 'OK');
+        const say = statusVoice(exercise, status, phase);
+        if (say && (phase === 'prepare' || phase === 'countdown' || phase === 'counting') && tA - lastStatusVoiceAt >= 4000) {
+          lastStatusVoiceAt = tA;
+          app.voice.say(say);
+        }
         if (phase === 'counting') {
           show(paused, status === 'NOT_VISIBLE');
           if (status === 'WRONG_POSITION') showTip(statusText(exercise, status, phase), false);
@@ -310,6 +369,10 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
         counter.classList.add('pulse');
       } else if (e.type === 'tip') {
         tipCode = e.code;
+      } else if (e.type === 'hint') {
+        const text = exercise === 'squat' ? 'Выпрямись и замри на секунду' : 'Выпрями руки в упоре и замри на секунду';
+        showTip(text, false);
+        app.voice.say(text);
       } else if (e.type === 'finish') {
         void finalize(e.reason);
       }
@@ -387,8 +450,18 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     app.navigate('/');
   }
 
+  /** «Назад»: если повторения уже есть, подход сохраняется, как по кнопке «Закончить». */
+  function back() {
+    if (phase === 'counting' && analyzer.debug().reps > 0) void finalize('user');
+    else leave();
+  }
+
   const onHidden = () => {
     if (document.hidden) app.voice.cancel();
+    else if (!stopped) {
+      wakeLock = null; // браузер снимает блокировку, когда вкладка скрыта
+      void requestWakeLock();
+    }
   };
   document.addEventListener('visibilitychange', onHidden);
 

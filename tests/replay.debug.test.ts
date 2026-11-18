@@ -13,6 +13,7 @@ describe.skipIf(!file)('replay', () => {
   it('печатает сигналы', () => {
     const frames = loadRecording(new URL('../' + file, import.meta.url));
     const cfg = loadTestConfig((c) => {
+      c.prepare.readyHoldMs = 200;
       if (process.env.SIGNAL) c[ex].signal = process.env.SIGNAL as 'angle2d' | 'angle3d';
     });
     const an = createAnalyzer(ex, cfg);
@@ -25,7 +26,7 @@ describe.skipIf(!file)('replay', () => {
         started = true;
       }
       const d = an.debug();
-      const s = d.side ?? 'left';
+      const s = d.side;
       const [a, b, c] = ex === 'squat' ? (['hip', 'knee', 'ankle'] as const) : (['shoulder', 'elbow', 'wrist'] as const);
       const ia = jointIndex(s, a), ib = jointIndex(s, b), ic = jointIndex(s, c);
       const a2 = angleAt(px(f, ia), px(f, ib), px(f, ic));
@@ -38,7 +39,7 @@ describe.skipIf(!file)('replay', () => {
       const kn = px(f, jointIndex(s, 'knee'));
       const tilt = ex === 'pushup' ? tiltFromHorizontal(sh, kn) : tiltFromVertical(sh, hp);
       lines.push(
-        `${String(f.tMs).padStart(6)} ${d.phase.padEnd(8)} ${d.state.padEnd(7)} ${String(d.status).padEnd(14)} side=${s[0]} 2d=${a2.toFixed(0).padStart(4)} 3d=${a3.toFixed(0).padStart(4)} ema=${d.angle?.toFixed(0) ?? '—'} thr=${d.top.toFixed(0)}/${d.start.toFixed(0)} vis=${vis} other=${visO} ratio=${shoulderRatio(f).toFixed(2)} tilt=${tilt.toFixed(0)} ${ev.map((e) => e.type + (e.type === 'rep' ? '#' + e.rep.index + ':' + e.rep.errors.join(',') : e.type === 'status' ? ':' + e.status : '')).join(' ')}`,
+        `${String(f.tMs).padStart(6)} ${d.phase.padEnd(8)} ${d.state.padEnd(7)} ${String(d.status).padEnd(14)} side=${s[0]} 2d=${a2.toFixed(0).padStart(4)} 3d=${a3.toFixed(0).padStart(4)} ema=${d.angle?.toFixed(0) ?? '—'} thr=${d.top.toFixed(0)}/${d.start.toFixed(0)} lock=${d.sideLocked ? 1 : 0} vis=${vis} other=${visO} ratio=${shoulderRatio(f).toFixed(2)} tilt=${tilt.toFixed(0)} ${ev.map((e) => e.type + (e.type === 'rep' ? '#' + e.rep.index + ':' + e.rep.errors.join(',') : e.type === 'status' ? ':' + e.status : '')).join(' ')}`,
       );
     }
     const sum = an.finish(frames.at(-1)?.tMs ?? 0);

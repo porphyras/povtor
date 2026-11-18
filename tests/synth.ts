@@ -89,3 +89,39 @@ export function pushupFrame(tMs: number, elbowAngle: number, o: PushupOpts = {})
   set('right', 4, 0.4);
   return { tMs, width: W, height: H, landmarks: lms };
 }
+
+/** Человек стоит (не в упоре) боком к камере и сгибает руку в локте. */
+export function uprightArmFrame(tMs: number, elbowAngle: number): PoseFrame {
+  const lms = emptyLandmarks();
+  const shoulder = { x: 300, y: 150 };
+  const elbow = { x: 300, y: 240 };
+  const t = deg(elbowAngle);
+  const wrist = { x: elbow.x + 90 * Math.sin(t), y: elbow.y - 90 * Math.cos(t) };
+  const hip = { x: 300, y: 300 };
+  const knee = { x: 300, y: 390 };
+  const ankle = { x: 300, y: 470 };
+  const set = (s: 'left' | 'right', dx: number, v: number) => {
+    const k = (name: string) => LM[(s + name) as keyof typeof LM];
+    put(lms, k('Shoulder'), { x: shoulder.x + dx, y: shoulder.y }, v);
+    put(lms, k('Elbow'), { x: elbow.x + dx, y: elbow.y }, v);
+    put(lms, k('Wrist'), { x: wrist.x + dx, y: wrist.y }, v);
+    put(lms, k('Hip'), { x: hip.x + dx, y: hip.y }, v);
+    put(lms, k('Knee'), { x: knee.x + dx, y: knee.y }, v);
+    put(lms, k('Ankle'), { x: ankle.x + dx, y: ankle.y }, v);
+  };
+  set('left', 0, 0.95);
+  set('right', 4, 0.4);
+  return { tMs, width: W, height: H, landmarks: lms };
+}
+
+/** Отжимание, где к камере повёрнут правый бок (левые точки почти не видны). */
+export function pushupFrameRight(tMs: number, elbowAngle: number): PoseFrame {
+  const f = pushupFrame(tMs, elbowAngle);
+  const swap = (a: number, b: number) => {
+    const t = f.landmarks[a];
+    f.landmarks[a] = f.landmarks[b];
+    f.landmarks[b] = t;
+  };
+  for (const [l, r] of [[11, 12], [13, 14], [15, 16], [23, 24], [25, 26], [27, 28]]) swap(l, r);
+  return f;
+}

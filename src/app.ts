@@ -66,6 +66,8 @@ export interface App {
 export function createApp(config: AppConfig, settings: Settings, persist: (s: Settings) => void): App {
   let engine: PoseEngine | null = null;
   let enginePromise: Promise<PoseEngine> | null = null;
+  // Загрузку модели может начать один экран, а дождаться другой («назад» и снова вход) — прогресс шлём текущему.
+  let stageListener: Parameters<typeof initPose>[2] | undefined;
   const hook: DebugHook = { events: [], frames: [], summary: null, engine: null, fps: 0, done: false, error: null };
   (window as unknown as { __povtor: DebugHook }).__povtor = hook;
   const app: App = {
@@ -80,6 +82,7 @@ export function createApp(config: AppConfig, settings: Settings, persist: (s: Se
       if (location.hash !== '#' + path) location.hash = path;
     },
     async getEngine(onStage) {
+      stageListener = onStage;
       const variant = app.dev.model ?? pickVariant(config, settings.modelVariant);
       if (engine && engine.variant === variant) return engine;
       if (engine) {
@@ -87,7 +90,7 @@ export function createApp(config: AppConfig, settings: Settings, persist: (s: Se
         engine = null;
         enginePromise = null;
       }
-      enginePromise ??= initPose(config, variant, onStage, app.dev.delegate ?? undefined).then((e) => {
+      enginePromise ??= initPose(config, variant, (st, sh) => stageListener?.(st, sh), app.dev.delegate ?? undefined).then((e) => {
         engine = e;
         hook.engine = { variant: e.variant, delegate: e.delegate };
         return e;

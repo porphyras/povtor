@@ -1,5 +1,5 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "camera": { "width": 640, "height": 480, "fps": 30 },
   "model": { "desktop": "full", "mobile": "full", "minDetection": 0.5, "minPresence": 0.5, "minTracking": 0.5 },
   "visibility": { "min": 0.6, "lostAfterMs": 1000 },
@@ -10,7 +10,7 @@
   "squat": { "signal": "angle2d", "top": 160, "start": 150, "attempt": 120, "topHoldMs": 500, "minRepMs": 400, "maxThighAngle": 15, "maxLean": 55 },
   "pushup": { "signal": "angle2d", "top": 155, "start": 145, "attempt": 120, "topHoldMs": 500, "minRepMs": 400, "clean": 90, "minBodyLine": 160, "bodyLineHoldMs": 250 },
   "feedback": { "minTipIntervalMs": 2000, "tipVisibleMs": 2000 },
-  "set": { "idleStopMs": 60000, "maxDurationMs": 600000, "maxReps": 200 },
+  "set": { "idleStopMs": 60000, "awayStopMs": 8000, "waitHintMs": 3000, "maxDurationMs": 600000, "maxReps": 200 },
   "errors": [
     { "code": "SQUAT_DEPTH", "exercise": "squat", "screen": "Ниже", "voice": "Ниже", "priority": 1 },
     { "code": "SQUAT_LEAN", "exercise": "squat", "screen": "Наклон вперёд", "voice": "Спину ровнее", "priority": 2 },

@@ -21,7 +21,9 @@ export function createVoice(enabled: boolean): Voice {
   let ru: SpeechSynthesisVoice | null = null;
   const pickVoice = () => {
     const voices = synth?.getVoices() ?? [];
-    ru = voices.find((v) => v.lang?.toLowerCase().startsWith('ru')) ?? null;
+    const russian = voices.filter((v) => v.lang?.toLowerCase().startsWith('ru'));
+    // локальный голос работает без сети (сетевые голоса Chrome под CSP всё равно недоступны)
+    ru = russian.find((v) => v.localService) ?? russian[0] ?? null;
   };
   if (synth) {
     pickVoice();

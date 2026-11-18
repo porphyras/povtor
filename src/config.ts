@@ -41,7 +41,7 @@ export interface AppConfig {
   squat: SquatConfig;
   pushup: PushupConfig;
   feedback: { minTipIntervalMs: number; tipVisibleMs: number };
-  set: { idleStopMs: number; maxDurationMs: number; maxReps: number };
+  set: { idleStopMs: number; awayStopMs: number; waitHintMs: number; maxDurationMs: number; maxReps: number };
   errors: ErrorType[];
 }
 
@@ -99,6 +99,8 @@ export function validateConfig(raw: unknown): AppConfig {
   num(c.feedback?.minTipIntervalMs, 'feedback.minTipIntervalMs', 0, 60000);
   num(c.feedback?.tipVisibleMs, 'feedback.tipVisibleMs', 0, 60000);
   num(c.set?.idleStopMs, 'set.idleStopMs', 1000, 3600000);
+  num(c.set.awayStopMs, 'set.awayStopMs', 1000, 3600000);
+  num(c.set.waitHintMs, 'set.waitHintMs', 500, 60000);
   num(c.set?.maxDurationMs, 'set.maxDurationMs', 1000, 3600000);
   num(c.set?.maxReps, 'set.maxReps', 1, 10000);
   if (!Array.isArray(c.errors)) throw new Error('config.json: errors должен быть массивом');

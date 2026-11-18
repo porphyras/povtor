@@ -23,11 +23,15 @@ export function pickVariant(config: AppConfig, setting: 'auto' | ModelVariant): 
   return isMobile() ? config.model.mobile : config.model.desktop;
 }
 
+/** Размеры файлов моделей без сжатия: хостинг может отдавать их в gzip, и content-length тогда меньше. */
+const MODEL_BYTES: Record<ModelVariant, number> = { lite: 5777746, full: 9398198 };
+
 /** Скачивает файл модели с отображением прогресса. */
-async function fetchModel(url: string, onProgress?: (share: number) => void): Promise<Uint8Array> {
+async function fetchModel(url: string, expected: number, onProgress?: (share: number) => void): Promise<Uint8Array> {
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`model HTTP ${res.status}`);
-  const total = Number(res.headers.get('content-length')) || 0;
+  const encoded = !!res.headers.get('content-encoding');
+  const total = encoded ? expected : Number(res.headers.get('content-length')) || expected;
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let got = 0;
@@ -61,7 +65,7 @@ export async function initPose(
     filesetPromise ??= FilesetResolver.forVisionTasks(new URL('./wasm', document.baseURI).href);
     const fileset = await filesetPromise;
     onStage?.('model', 0);
-    const model = await fetchModel(new URL(`./models/pose_landmarker_${variant}.task`, document.baseURI).href, (s) => onStage?.('model', s));
+    const model = await fetchModel(new URL(`./models/pose_landmarker_${variant}.task`, document.baseURI).href, MODEL_BYTES[variant], (s) => onStage?.('model', s));
     onStage?.('init');
     const make = (delegate: Delegate) =>
       PoseLandmarker.createFromOptions(fileset, {
@@ -95,6 +99,7 @@ export async function initPose(
     };
 
     // Прогрев: первый кадр на GPU может идти несколько секунд — пусть это случится на экране загрузки.
+    // Если GPU падает уже на прогреве, сразу переходим на CPU.
     onStage?.('warmup');
     const warm = document.createElement('canvas');
     warm.width = 256;
@@ -108,6 +113,15 @@ export async function initPose(
           landmarker.detectForVideo(warm, nextTs());
         } catch (e) {
           console.warn('прогрев', e);
+          if (delegate === 'GPU') {
+            try {
+              landmarker.close();
+            } catch {
+              /* уже закрыт */
+            }
+            delegate = 'CPU';
+            landmarker = await make('CPU');
+          } else break;
         }
       }
     }
@@ -122,6 +136,11 @@ export async function initPose(
       } catch {
         /* уже закрыт */
       }
+      // сбой на GPU — дальше работаем на CPU, иначе можно бесконечно пересоздавать сломанный делегат
+      if (delegate === 'GPU') {
+        delegate = 'CPU';
+        engine.delegate = 'CPU';
+      }
       make(delegate)
         .then((l) => {
           landmarker = l;
@@ -131,7 +150,7 @@ export async function initPose(
         .finally(() => (rebuilding = false));
     };
 
-    return {
+    const engine: PoseEngine = {
       variant,
       delegate,
       detect(source) {
@@ -161,6 +180,7 @@ export async function initPose(
         landmarker.close();
       },
     };
+    return engine;
   } catch (e) {
     if (e instanceof PovtorError) throw e;
     console.error(e);

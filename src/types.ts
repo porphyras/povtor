@@ -35,13 +35,14 @@ export interface Rep {
 
 export type Status = 'OK' | 'NOT_VISIBLE' | 'WRONG_POSITION';
 export type MachineState = 'WAITING' | 'TOP' | 'IN_REP' | 'PAUSED';
-export type FinishReason = 'user' | 'idle' | 'maxDuration' | 'maxReps';
+export type FinishReason = 'user' | 'idle' | 'away' | 'maxDuration' | 'maxReps';
 
 export type AnalyzerEvent =
   | { type: 'status'; status: Status }
   | { type: 'ready'; ready: boolean }
   | { type: 'rep'; rep: Rep }
   | { type: 'tip'; code: ErrorCode }
+  | { type: 'hint'; code: 'STAND_STILL' }
   | { type: 'finish'; reason: FinishReason };
 
 export interface SetSummary {

@@ -63,10 +63,9 @@ export function renderHistory(root: HTMLElement, app: App): () => void {
         'ul',
         { class: 'setlist' },
         ...sets.map((s) =>
-          h('li', null, h('span', { class: 'when' }, humanDate(s.startedAt)), h('span', { class: 'what' }, EXERCISE_NAME[s.exercise]), h('b', { class: 'count' }, `${s.totalReps} / ${s.cleanReps}`)),
+          h('li', null, h('span', { class: 'when' }, humanDate(s.startedAt)), h('span', { class: 'what' }, EXERCISE_NAME[s.exercise]), h('span', { class: 'count' }, h('b', null, String(s.totalReps)), `, чистых ${s.cleanReps}`)),
         ),
       ),
-      h('p', { class: 'muted small' }, 'Число слева — все повторения, справа — чистые.'),
       h(
         'div',
         { class: 'btns column' },
