@@ -26,30 +26,56 @@ export function pickVariant(config: AppConfig, setting: 'auto' | ModelVariant): 
 /** Размеры файлов моделей без сжатия: хостинг может отдавать их в gzip, и content-length тогда меньше. */
 const MODEL_BYTES: Record<ModelVariant, number> = { lite: 5777746, full: 9398198 };
 
-/** Скачивает файл модели с отображением прогресса. */
-async function fetchModel(url: string, expected: number, onProgress?: (share: number) => void): Promise<Uint8Array> {
-  const res = await fetch(url);
-  if (!res.ok || !res.body) throw new Error(`model HTTP ${res.status}`);
-  const encoded = !!res.headers.get('content-encoding');
-  const total = encoded ? expected : Number(res.headers.get('content-length')) || expected;
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let got = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    got += value.length;
-    if (total) onProgress?.(Math.min(1, got / total));
+/** Один проход загрузки: если данных нет дольше stallMs, загрузка прерывается. */
+async function fetchOnce(url: string, expected: number, stallMs: number, onProgress?: (share: number) => void): Promise<Uint8Array> {
+  const ctrl = new AbortController();
+  let timer = setTimeout(() => ctrl.abort(), stallMs);
+  const poke = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => ctrl.abort(), stallMs);
+  };
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok || !res.body) throw new Error(`model HTTP ${res.status}`);
+    const encoded = !!res.headers.get('content-encoding');
+    const total = encoded ? expected : Number(res.headers.get('content-length')) || expected;
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      poke();
+      chunks.push(value);
+      got += value.length;
+      if (total) onProgress?.(Math.min(1, got / total));
+    }
+    const buf = new Uint8Array(got);
+    let off = 0;
+    for (const c of chunks) {
+      buf.set(c, off);
+      off += c.length;
+    }
+    onProgress?.(1);
+    return buf;
+  } finally {
+    clearTimeout(timer);
   }
-  const buf = new Uint8Array(got);
-  let off = 0;
-  for (const c of chunks) {
-    buf.set(c, off);
-    off += c.length;
+}
+
+/** Скачивает файл модели с прогрессом. Зависшая загрузка (бывает на мобильной сети) перезапускается до трёх раз. */
+async function fetchModel(url: string, expected: number, onProgress?: (share: number) => void, onRetry?: (attempt: number) => void): Promise<Uint8Array> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      if (attempt > 1) onRetry?.(attempt);
+      return await fetchOnce(url, expected, 15000, onProgress);
+    } catch (e) {
+      lastErr = e;
+      console.warn(`загрузка модели, попытка ${attempt}`, e);
+    }
   }
-  onProgress?.(1);
-  return buf;
+  throw lastErr;
 }
 
 let filesetPromise: ReturnType<typeof FilesetResolver.forVisionTasks> | null = null;
@@ -57,7 +83,7 @@ let filesetPromise: ReturnType<typeof FilesetResolver.forVisionTasks> | null = n
 export async function initPose(
   config: AppConfig,
   variant: ModelVariant,
-  onStage?: (stage: 'wasm' | 'model' | 'init' | 'warmup', share?: number) => void,
+  onStage?: (stage: 'wasm' | 'model' | 'retry' | 'init' | 'warmup', share?: number) => void,
   forceDelegate?: Delegate,
 ): Promise<PoseEngine> {
   try {
@@ -65,7 +91,7 @@ export async function initPose(
     filesetPromise ??= FilesetResolver.forVisionTasks(new URL('./wasm', document.baseURI).href);
     const fileset = await filesetPromise;
     onStage?.('model', 0);
-    const model = await fetchModel(new URL(`./models/pose_landmarker_${variant}.task`, document.baseURI).href, MODEL_BYTES[variant], (s) => onStage?.('model', s));
+    const model = await fetchModel(new URL(`./models/pose_landmarker_${variant}.task`, document.baseURI).href, MODEL_BYTES[variant], (s) => onStage?.('model', s), (n) => onStage?.('retry', n));
     onStage?.('init');
     const make = (delegate: Delegate) =>
       PoseLandmarker.createFromOptions(fileset, {

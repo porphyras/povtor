@@ -159,6 +159,7 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
           loadingText.textContent = `Загружаем модель… ${Math.round((share ?? 0) * 100)}%`;
           bar.style.width = `${Math.round((share ?? 0) * 100)}%`;
         }
+        if (stage === 'retry') loadingText.textContent = `Связь прервалась, загружаем заново (попытка ${share})…`;
         if (stage === 'init' || stage === 'warmup') loadingText.textContent = 'Запускаем распознавание…';
       });
       if (stopped) return;

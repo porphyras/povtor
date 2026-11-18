@@ -80,6 +80,27 @@ try {
   const msg = await p3.textContent('.overlay.error');
   check('отказ в камере — понятное сообщение', /Нет доступа к камере/.test(msg ?? ''));
   await denied.close();
+  // 6. зависшая загрузка модели: первый запрос не отвечает, приложение повторяет попытку
+  const stall = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['camera'] });
+  const p4 = await stall.newPage();
+  let calls = 0;
+  await p4.route('**/pose_landmarker_full.task', (route) => {
+    calls += 1;
+    if (calls === 1) return; // никогда не отвечаем
+    return route.continue();
+  });
+  const texts = new Set();
+  await p4.goto(BASE + '?delegate=CPU#/session/squat');
+  const t1 = Date.now();
+  while (Date.now() - t1 < 90000) {
+    const st = await p4.evaluate(() => ({ ph: document.querySelector('.session')?.dataset.phase, txt: document.querySelector('.loading p')?.textContent }));
+    if (st.txt) texts.add(st.txt);
+    if (st.ph === 'prepare' || st.ph === 'error') break;
+    await p4.waitForTimeout(250);
+  }
+  const ph4 = await p4.evaluate(() => document.querySelector('.session')?.dataset.phase);
+  check('зависшая загрузка модели перезапускается', ph4 === 'prepare' && calls >= 2, `запросов ${calls}, ${[...texts].find((t) => t.includes('заново')) ?? 'без сообщения'}`);
+  await stall.close();
 } catch (e) {
   check('сценарий не упал', false, e.message);
 }
