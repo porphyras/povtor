@@ -31,6 +31,7 @@ await shot('2-prepare');
 
 await page.goto(`${BASE}?delegate=CPU&video=${encodeURIComponent('/test-videos/pushup_side.mp4')}#/session/pushup`);
 await page.waitForFunction(() => Number(document.querySelector('#counter')?.textContent) >= 2, null, { timeout: 120000 });
+await page.waitForTimeout(450); // счётчик после повторения «пульсирует» 0,35 с — снимаем после
 await shot('3-counting');
 // помещаются ли длинные значения в плашку счётчика (ширина текста против ширины плашки)
 const fit = await page.evaluate(() => {

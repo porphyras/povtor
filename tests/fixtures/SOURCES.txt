@@ -1,0 +1,12 @@
+Источники роликов, с которых записаны точки тела в tests/fixtures (стоковые ролики Mixkit, лицензия Mixkit Stock Video Free License). Сами ролики в репозиторий не входят.
+squat_side_two_people.mp4  https://mixkit.co/free-stock-video/mother-and-daughter-doing-squat-repetitions-49038/
+squat_side_cuts.mp4        https://mixkit.co/free-stock-video/man-doing-squats-at-home-21273/
+squat_front.mp4            https://mixkit.co/free-stock-video/a-young-woman-wearing-a-black-sportswear-outfit-performs-squats-52106/
+pushup_side.mp4            https://mixkit.co/free-stock-video/young-athletic-man-doing-push-ups-outdoors-32320/
+pushup_diagonal.mp4        https://mixkit.co/free-stock-video/woman-doing-push-ups-in-the-park-11544/
+lunge_side.mp4             https://mixkit.co/free-stock-video/man-in-brightly-coloured-workout-clothes-doing-lunges-45960/
+lunge_side_far.mp4         https://mixkit.co/free-stock-video/a-young-woman-clad-in-snugly-black-sportswear-doing-lunges-52112/
+curl_diagonal.mp4          https://mixkit.co/free-stock-video/bodybuilder-exercising-his-biceps-in-the-gym-21272/
+plank_side.mp4             https://mixkit.co/free-stock-video/man-doing-plank-exercise-in-his-living-room-36813/
+situp_side.mp4             https://mixkit.co/free-stock-video/girl-doing-sit-ups-lying-on-the-floor-4591/
+crunch_side.mp4            https://mixkit.co/free-stock-video/man-doing-crunches-in-the-gym-14654/
