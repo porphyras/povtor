@@ -9,6 +9,8 @@ export type Delegate = 'GPU' | 'CPU';
 export interface PoseEngine {
   variant: ModelVariant;
   delegate: Delegate;
+  /** Модель сломалась и пересоздать её не удалось: подход нужно остановить и показать ошибку. */
+  failed: boolean;
   /** Детекция на текущем кадре. null — человека нет (или кадр пропущен из-за сбоя). */
   detect(source: HTMLVideoElement): PoseFrame | null;
   close(): void;
@@ -23,8 +25,28 @@ export function pickVariant(config: AppConfig, setting: 'auto' | ModelVariant): 
   return isMobile() ? config.model.mobile : config.model.desktop;
 }
 
-/** Размеры файлов моделей без сжатия: хостинг может отдавать их в gzip, и content-length тогда меньше. */
+/** Размеры файлов без сжатия: хостинг может отдавать их в gzip, и content-length тогда меньше.
+ *  Скачанный файл другого размера считаем битым и качаем заново. */
 const MODEL_BYTES: Record<ModelVariant, number> = { lite: 5777746, full: 9398198 };
+const WASM_BYTES = { simd: 11153617, nosimd: 10481398 };
+/** Сколько ждём запуска распознавания после того, как все файлы скачаны. */
+const INIT_TIMEOUT_MS = 60000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new PovtorError('MODEL_LOAD', `${what}: нет ответа ${ms} мс`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
 
 /** Один проход загрузки: если данных нет дольше stallMs, загрузка прерывается. */
 async function fetchOnce(url: string, expected: number, stallMs: number, onProgress?: (share: number) => void): Promise<Uint8Array> {
@@ -56,6 +78,7 @@ async function fetchOnce(url: string, expected: number, stallMs: number, onProgr
       buf.set(c, off);
       off += c.length;
     }
+    if (got !== expected) throw new Error(`файл ${url}: ${got} байт вместо ${expected}`);
     onProgress?.(1);
     return buf;
   } finally {
@@ -63,7 +86,7 @@ async function fetchOnce(url: string, expected: number, stallMs: number, onProgr
   }
 }
 
-/** Скачивает файл модели с прогрессом. Зависшая загрузка (бывает на мобильной сети) перезапускается до трёх раз. */
+/** Скачивает файл с прогрессом. Зависшая загрузка (бывает на мобильной сети) перезапускается до трёх раз. */
 async function fetchModel(url: string, expected: number, onProgress?: (share: number) => void, onRetry?: (attempt: number) => void): Promise<Uint8Array> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -85,16 +108,22 @@ export async function initPose(
   variant: ModelVariant,
   onStage?: (stage: 'wasm' | 'model' | 'retry' | 'init' | 'warmup', share?: number) => void,
   forceDelegate?: Delegate,
+  withWorld = false, // мировые координаты нужны только для записи точек в режиме проверки
 ): Promise<PoseEngine> {
   try {
-    onStage?.('wasm');
+    // Библиотека качает wasm сама — без прогресса, таймаута и повтора, и на плохой сети может зависнуть навсегда.
+    // Поэтому сначала скачиваем его своей загрузкой (с прогрессом и повтором): библиотека потом возьмёт файл из кэша браузера.
+    onStage?.('wasm', 0);
+    const simd = await FilesetResolver.isSimdSupported();
+    const wasmName = simd ? 'vision_wasm_internal.wasm' : 'vision_wasm_nosimd_internal.wasm';
+    await fetchModel(new URL(`./wasm/${wasmName}`, document.baseURI).href, simd ? WASM_BYTES.simd : WASM_BYTES.nosimd, (s) => onStage?.('wasm', s), (n) => onStage?.('retry', n));
     filesetPromise ??= FilesetResolver.forVisionTasks(new URL('./wasm', document.baseURI).href);
-    const fileset = await filesetPromise;
+    const fileset = await withTimeout(filesetPromise, INIT_TIMEOUT_MS, 'wasm');
     onStage?.('model', 0);
     const model = await fetchModel(new URL(`./models/pose_landmarker_${variant}.task`, document.baseURI).href, MODEL_BYTES[variant], (s) => onStage?.('model', s), (n) => onStage?.('retry', n));
     onStage?.('init');
     const make = (delegate: Delegate) =>
-      PoseLandmarker.createFromOptions(fileset, {
+      withTimeout(PoseLandmarker.createFromOptions(fileset, {
         baseOptions: { modelAssetBuffer: model, delegate },
         runningMode: 'VIDEO',
         numPoses: 1,
@@ -102,7 +131,7 @@ export async function initPose(
         minPosePresenceConfidence: config.model.minPresence,
         minTrackingConfidence: config.model.minTracking,
         outputSegmentationMasks: false,
-      });
+      }), INIT_TIMEOUT_MS, 'init');
 
     let delegate: Delegate = forceDelegate ?? 'GPU';
     let landmarker: PoseLandmarker;
@@ -172,13 +201,17 @@ export async function initPose(
           landmarker = l;
           broken = false;
         })
-        .catch((e) => console.error('не удалось пересоздать модель', e))
+        .catch((e) => {
+          console.error('не удалось пересоздать модель', e);
+          engine.failed = true;
+        })
         .finally(() => (rebuilding = false));
     };
 
     const engine: PoseEngine = {
       variant,
       delegate,
+      failed: false,
       detect(source) {
         const w = source.videoWidth;
         const h = source.videoHeight;
@@ -187,7 +220,7 @@ export async function initPose(
           const res = landmarker.detectForVideo(source, nextTs());
           const lms = res.landmarks[0];
           if (!lms || lms.length < 33) return null;
-          const world = res.worldLandmarks[0];
+          const world = withWorld ? res.worldLandmarks[0] : undefined;
           return {
             tMs: 0,
             width: w,
@@ -208,6 +241,8 @@ export async function initPose(
     };
     return engine;
   } catch (e) {
+    // зависшую или упавшую загрузку библиотеки в следующий раз начинаем заново
+    filesetPromise = null;
     if (e instanceof PovtorError) throw e;
     console.error(e);
     throw new PovtorError('MODEL_LOAD', String(e));

@@ -1,37 +1,11 @@
 import type { AppConfig } from './config';
 import { initPose, pickVariant, type ModelVariant, type PoseEngine } from './pose';
 import type { Settings } from './storage';
-import type { AnalyzerEvent, Exercise, PoseFrame, SetRecord, SetSummary } from './types';
+import type { AnalyzerEvent, PoseFrame, SetRecord, SetSummary } from './types';
+import { readDevParams, type DevParams } from './devparams';
 import { createVoice, type Voice } from './voice';
 
-/** Параметры режима разработчика из адресной строки. */
-export interface DevParams {
-  dev: boolean; // панель отладки
-  video: string | null; // источник — видеофайл по ссылке
-  step: number; // >0: покадровый проход файла с этой частотой (детерминированно, для тестов)
-  record: boolean; // сохранять точки тела для регрессионных тестов
-  countdown: number | null; // переопределить обратный отсчёт
-  readyMs: number | null; // переопределить время «вижу целиком» перед стартом
-  delegate: 'GPU' | 'CPU' | null; // принудительный делегат (для воспроизводимых замеров — CPU)
-  model: 'lite' | 'full' | null; // принудительная модель
-}
-
-export function readDevParams(search = location.search): DevParams {
-  const q = new URLSearchParams(search);
-  const step = Number(q.get('step') ?? 0);
-  const cd = q.get('countdown');
-  const rd = q.get('ready');
-  return {
-    dev: q.has('dev'),
-    video: q.get('video'),
-    step: Number.isFinite(step) && step > 0 ? step : 0,
-    record: q.has('record'),
-    countdown: cd !== null && Number.isFinite(Number(cd)) ? Number(cd) : null,
-    readyMs: rd !== null && Number.isFinite(Number(rd)) ? Number(rd) : null,
-    delegate: q.get('delegate') === 'CPU' ? 'CPU' : q.get('delegate') === 'GPU' ? 'GPU' : null,
-    model: q.get('model') === 'lite' ? 'lite' : q.get('model') === 'full' ? 'full' : null,
-  };
-}
+export type { DevParams };
 
 export interface LastResult {
   summary: SetSummary;
@@ -57,48 +31,65 @@ export interface App {
   dev: DevParams;
   last: LastResult | null;
   hook: DebugHook;
-  navigate(path: string): void;
+  /** replace: заменить текущую запись истории браузера, чтобы системная «назад» не возвращала на экран подхода. */
+  navigate(path: string, replace?: boolean): void;
   getEngine(onStage?: Parameters<typeof initPose>[2]): Promise<PoseEngine>;
   persistSettings(): void;
-  exercise: Exercise;
 }
 
 export function createApp(config: AppConfig, settings: Settings, persist: (s: Settings) => void): App {
   let engine: PoseEngine | null = null;
-  let enginePromise: Promise<PoseEngine> | null = null;
+  // Загрузка, которая идёт сейчас, и для какой модели. Если пользователь сменил модель во время загрузки,
+  // начинаем новую, а результат старой закрываем.
+  let pending: { variant: ModelVariant; promise: Promise<PoseEngine> } | null = null;
   // Загрузку модели может начать один экран, а дождаться другой («назад» и снова вход) — прогресс шлём текущему.
   let stageListener: Parameters<typeof initPose>[2] | undefined;
   const hook: DebugHook = { events: [], frames: [], summary: null, engine: null, fps: 0, done: false, error: null };
-  (window as unknown as { __povtor: DebugHook }).__povtor = hook;
+  const dev = readDevParams();
+  // окно для автотестов открываем только в режиме проверки
+  if (import.meta.env.DEV || new URLSearchParams(location.search).has('dev')) (window as unknown as { __povtor: DebugHook }).__povtor = hook;
   const app: App = {
     config,
     settings,
     voice: createVoice(settings.voiceEnabled),
-    dev: readDevParams(),
+    dev,
     last: null,
     hook,
-    exercise: settings.lastExercise,
-    navigate(path) {
-      if (location.hash !== '#' + path) location.hash = path;
+    navigate(path, replace = false) {
+      if (location.hash === '#' + path) return;
+      if (replace) location.replace('#' + path);
+      else location.hash = path;
     },
     async getEngine(onStage) {
       stageListener = onStage;
       const variant = app.dev.model ?? pickVariant(config, settings.modelVariant);
+      if (engine?.failed) {
+        engine = null;
+        hook.engine = null;
+      }
       if (engine && engine.variant === variant) return engine;
       if (engine) {
         engine.close();
         engine = null;
-        enginePromise = null;
       }
-      enginePromise ??= initPose(config, variant, (st, sh) => stageListener?.(st, sh), app.dev.delegate ?? undefined).then((e) => {
-        engine = e;
-        hook.engine = { variant: e.variant, delegate: e.delegate };
-        return e;
-      });
+      if (!pending || pending.variant !== variant) {
+        const promise: Promise<PoseEngine> = initPose(config, variant, (st, sh) => stageListener?.(st, sh), app.dev.delegate ?? undefined, app.dev.record).then((e) => {
+          if (pending?.promise !== promise) {
+            e.close(); // пока грузилось, пользователь выбрал другую модель
+            throw new Error('загрузка устарела');
+          }
+          pending = null;
+          engine = e;
+          hook.engine = { variant: e.variant, delegate: e.delegate };
+          return e;
+        });
+        pending = { variant, promise };
+      }
+      const my = pending;
       try {
-        return await enginePromise;
+        return await my.promise;
       } catch (e) {
-        enginePromise = null;
+        if (pending === my) pending = null;
         throw e;
       }
     },

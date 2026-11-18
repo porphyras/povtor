@@ -48,13 +48,18 @@ try {
   });
   check('длинная подсказка в пределах экрана', box.left >= 0 && box.right <= 390, `${Math.round(box.left)}…${Math.round(box.right)}`);
 
-  // 4. «назад» во время загрузки и повторный вход
+  // 4. «На главную» во время загрузки и повторный вход. Нажимаем, пока идёт загрузка, и проверяем, что это так.
   const fresh = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['camera'] });
   const p2 = await fresh.newPage();
   await p2.goto(BASE + '?delegate=CPU#/session/squat');
-  await p2.waitForTimeout(150);
-  await p2.click('[aria-label="Назад"]');
+  await p2.waitForSelector('#loading-home', { state: 'visible' });
+  const phAtClick = await p2.evaluate(() => {
+    const ph = document.querySelector('.session')?.dataset.phase;
+    document.querySelector('#loading-home').click();
+    return ph;
+  });
   await p2.waitForSelector('#start-squat');
+  check('«На главную» нажимается во время загрузки', phAtClick === 'loading', `фаза в момент нажатия: ${phAtClick}`);
   await p2.click('#start-squat');
   const seen = new Set();
   const t0 = Date.now();
@@ -120,6 +125,50 @@ try {
   const ph4 = await p4.evaluate(() => document.querySelector('.session')?.dataset.phase);
   check('зависшая загрузка модели перезапускается', ph4 === 'prepare' && calls >= 2, `запросов ${calls}, ${[...texts].find((t) => t.includes('заново')) ?? 'без сообщения'}`);
   await stall.close();
+
+  // 9. зависшая загрузка WebAssembly: раньше экран загрузки висел навсегда, теперь загрузка повторяется
+  const wstall = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['camera'] });
+  const p5 = await wstall.newPage();
+  let wcalls = 0;
+  await p5.route(/vision_wasm(_nosimd)?_internal\.wasm$/, (route) => {
+    wcalls += 1;
+    if (wcalls === 1) return; // никогда не отвечаем
+    return route.continue();
+  });
+  await p5.goto(BASE + '?delegate=CPU#/session/squat');
+  await p5.waitForFunction(() => ['prepare', 'error'].includes(document.querySelector('.session')?.dataset.phase ?? ''), null, { timeout: 150000 }).catch(() => undefined);
+  const ph5 = await p5.evaluate(() => document.querySelector('.session')?.dataset.phase);
+  check('зависшая загрузка wasm перезапускается', ph5 === 'prepare' && wcalls >= 2, `запросов wasm ${wcalls}, фаза ${ph5}`);
+  await wstall.close();
+
+  // 10. системная «назад» с экрана итога не включает камеру снова
+  const c3 = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['camera'] });
+  const p6 = await c3.newPage();
+  await p6.goto(BASE + '?delegate=CPU#/');
+  await p6.click('#start-pushup');
+  await p6.waitForFunction(() => Number(document.querySelector('#counter')?.textContent) >= 1, null, { timeout: 150000 });
+  await p6.click('#finish');
+  await p6.waitForSelector('.summary');
+  await p6.evaluate(() => history.back());
+  await p6.waitForTimeout(1500);
+  const hash6 = await p6.evaluate(() => location.hash);
+  check('«назад» с итога ведёт на главную', !hash6.startsWith('#/session'), `адрес ${hash6 || '(пусто)'}`);
+  await c3.close();
+
+  // 11. перезагрузка страницы посреди подхода: сделанные повторения уже в истории (черновик после каждого повторения)
+  const c4 = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['camera'] });
+  const p7 = await c4.newPage();
+  await p7.goto(BASE + '?delegate=CPU#/');
+  await p7.click('#start-pushup');
+  await p7.waitForFunction(() => Number(document.querySelector('#counter')?.textContent) >= 2, null, { timeout: 150000 });
+  const before = Number(await p7.textContent('#counter'));
+  await p7.waitForTimeout(300);
+  await p7.reload();
+  await p7.goto(BASE + '?delegate=CPU#/history');
+  await p7.waitForSelector('.history-body .empty, .setlist', { timeout: 20000 });
+  const savedAfterReload = await p7.$$eval('.setlist li .count b', (els) => els.map((e) => Number(e.textContent)));
+  check('перезагрузка во время счёта не теряет подход', savedAfterReload.length === 1 && savedAfterReload[0] >= Math.min(before, 2), `на счётчике было ${before}, в истории ${savedAfterReload.join(', ') || 'пусто'}`);
+  await c4.close();
 } catch (e) {
   check('сценарий не упал', false, e.message);
 }

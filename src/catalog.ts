@@ -120,8 +120,9 @@ export const CATALOG: Record<Exercise, ExerciseInfo> = {
 };
 
 export const EXERCISES = Object.values(CATALOG);
-export const exerciseName = (ex: Exercise) => CATALOG[ex]?.name ?? ex;
-export const isExercise = (s: string): s is Exercise => s in CATALOG;
+/** Только собственные ключи каталога: «constructor» или «toString» упражнениями не считаются. */
+export const isExercise = (s: unknown): s is Exercise => typeof s === 'string' && Object.prototype.hasOwnProperty.call(CATALOG, s);
+export const exerciseName = (ex: Exercise) => (isExercise(ex) ? CATALOG[ex].name : String(ex));
 
 /** 65 000 мс → «1:05». */
 export function formatDuration(ms: number): string {

@@ -18,7 +18,7 @@ export const CASES = [
   { name: 'squat_front', exercise: 'squat', video: 'test-videos/squat_front.mp4', expect: [0, 0], status: 'WRONG_POSITION', note: 'анфас — должен попросить встать боком' },
   { name: 'lunge_side', exercise: 'lunge', video: 'test-videos/lunge_side.mp4', expect: [1, 1], note: '1 полный выпад; первый начат до записи, последний оборван' },
   { name: 'lunge_side_far', exercise: 'lunge', video: 'test-videos/lunge_side_far.mp4', expect: [3, 3], note: '3 полных выпада с шагом, человек далеко' },
-  { name: 'curl_diagonal', exercise: 'curl', video: 'test-videos/curl_diagonal.mp4', expect: [0, 0], note: 'ракурс три четверти — не считаем, просим встать боком' },
+  { name: 'curl_diagonal', exercise: 'curl', video: 'test-videos/curl_diagonal.mp4', expect: [0, 0], status: 'WRONG_POSITION', note: 'ракурс три четверти — не считаем, просим встать боком' },
   { name: 'plank_side', exercise: 'plank', video: 'test-videos/plank_side.mp4', expect: [0, 0], hold: [10, 17], note: 'планка на локтях, в начале камера двигается' },
   { name: 'situp_side', exercise: 'crunch', video: 'test-videos/situp_side.mp4', expect: [2, 2], note: '2 полных подъёма, третий оборван наверху' },
   { name: 'crunch_side', exercise: 'crunch', video: 'test-videos/crunch_side.mp4', expect: [0, 0], note: 'V-образные скручивания сидя — другое упражнение, не считаем' },

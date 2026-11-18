@@ -1,12 +1,16 @@
 {
   "name": "Повтор",
   "short_name": "Повтор",
-  "description": "Счёт приседаний и отжиманий по камере с подсказками по технике",
+  "description": "Счёт повторений 10 упражнений по камере с подсказками по технике",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#F5F7FA",
   "theme_color": "#1D2630",
-  "icons": [{ "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "icons": [
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
 }

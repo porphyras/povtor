@@ -5,7 +5,7 @@ import { errorType } from '../config';
 import { appError, PovtorError } from '../errors';
 import type { PoseEngine } from '../pose';
 import { saveSet } from '../storage';
-import type { AnalyzerEvent, AppError, ErrorCode, Exercise, FinishReason, RepRecord, SetRecord, Status } from '../types';
+import type { AnalyzerEvent, AppError, AppErrorCode, ErrorCode, Exercise, FinishReason, Rep, RepRecord, SetRecord, Side, Status } from '../types';
 import { numberWord } from '../voice';
 import { clear, h, svg } from './dom';
 import { CATALOG, formatDuration, SILHOUETTES } from '../catalog';
@@ -79,7 +79,15 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   const countdownEl = h('div', { class: 'countdown hidden', id: 'countdown' });
   const loadingText = h('p', null, 'Загружаем модель…');
   const bar = h('div', { class: 'bar-fill' });
-  const loading = h('div', { class: 'overlay loading' }, h('div', { class: 'spinner' }), loadingText, h('div', { class: 'bar' }, bar));
+  const loading = h(
+    'div',
+    { class: 'overlay loading', role: 'status', 'aria-live': 'polite' },
+    h('div', { class: 'spinner' }),
+    loadingText,
+    h('div', { class: 'bar' }, bar),
+    // загрузка может зависнуть на плохой сети — уйти можно всегда
+    h('div', { class: 'btns' }, h('button', { class: 'btn', id: 'loading-home', onclick: () => leave() }, 'На главную')),
+  );
   const errorBox = h('div', { class: 'overlay error hidden', role: 'alert' });
   const finishBtn = h('button', { class: 'btn primary finish hidden', id: 'finish', onclick: () => finalize('user') }, 'Закончить');
   const switchBtn = h(
@@ -120,6 +128,15 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   let lastHoldVoiceSec = 0;
   let gen = 0; // поколение запуска: после перезапуска старые циклы кадров останавливаются
   const fpsTimes: number[] = [];
+  // подход сохраняется черновиком после каждого повторения: перезагрузка или закрытие вкладки его не теряют
+  let setId = '';
+  let reps: Rep[] = [];
+  let lastDraftAt = 0;
+  // постоянная строка внизу во время счёта: почему не считается (неверное положение, нет позы в удержании)
+  let statusNote: string | null = null;
+  let holdNote: string | null = null;
+  let notHoldingSince = -1;
+  let tipTransient = false;
   hook.events = [];
   hook.frames = [];
   hook.summary = null;
@@ -145,6 +162,11 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
 
   function showError(err: AppError) {
     hook.error = err.code;
+    // камера и блокировка экрана не должны оставаться включёнными под сообщением об ошибке
+    stopStream(stream);
+    stream = null;
+    wakeLock?.release().catch(() => undefined);
+    wakeLock = null;
     clear(errorBox);
     errorBox.append(h('h2', null, 'Что-то пошло не так'), h('p', null, err.message));
     if (err.code === 'CAMERA_DENIED') {
@@ -166,9 +188,14 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     finalized = false;
     lastT = 0;
     setPhase('loading');
+    // какой код ошибки показать, если что-то упадёт без своего кода: зависит от того, что делали
+    let stage: AppErrorCode = 'MODEL_LOAD';
     try {
       engine = await app.getEngine((stage, share) => {
-        if (stage === 'wasm') loadingText.textContent = 'Загружаем библиотеку…';
+        if (stage === 'wasm') {
+          loadingText.textContent = `Загружаем библиотеку… ${Math.round((share ?? 0) * 100)}%`;
+          bar.style.width = `${Math.round((share ?? 0) * 100)}%`;
+        }
         if (stage === 'model') {
           loadingText.textContent = `Загружаем модель… ${Math.round((share ?? 0) * 100)}%`;
           bar.style.width = `${Math.round((share ?? 0) * 100)}%`;
@@ -178,6 +205,7 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
       });
       if (stopped) return;
       loadingText.textContent = fileMode ? 'Открываем видео…' : 'Включаем камеру…';
+      stage = fileMode ? 'FILE_FORMAT' : 'CAMERA_BUSY';
       if (fileMode) {
         const src = new URL(dev.video as string, location.href);
         if (src.origin !== location.origin) throw new PovtorError('FILE_FORMAT', 'видео только с этого же сайта');
@@ -212,9 +240,9 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
         schedule(my);
       }
     } catch (e) {
-      if (stopped) return;
+      if (stopped || my !== gen) return;
       console.error(e);
-      showError(appError(e, 'MODEL_LOAD'));
+      showError(appError(e, stage));
     }
   }
 
@@ -285,6 +313,12 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
 
   function tick(tA: number) {
     if (stopped || finalized || !engine || video.readyState < 2) return;
+    if (engine.failed) {
+      // модель сломалась и не пересоздалась: сохраняем сделанное или говорим об ошибке, а не висим на «Не вижу тебя»
+      if (phase === 'counting' && didSomething()) void finalize('user');
+      else showError(appError(new PovtorError('MODEL_LOAD', 'модель не пересоздалась'), 'MODEL_LOAD'));
+      return;
+    }
     if (!(tA > lastT)) return;
     lastT = tA;
     fitCanvas();
@@ -301,9 +335,25 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     if (events.length) hook.events.push(...events);
     handle(events, tA);
     const dbg = analyzer.debug();
-    drawSkeleton(ctx, frame, info.view === 'front' ? null : dbg.side, config.visibility.min, !tip.classList.contains('hidden'));
+    drawSkeleton(ctx, frame, info.view === 'front' ? null : dbg.side, config.visibility.min, !tip.classList.contains('hidden') && tip.classList.contains('warn'));
     if (isHold && phase === 'counting') {
-      counter.textContent = formatDuration(dbg.holdMs);
+      setCounter(formatDuration(dbg.holdMs));
+      // позы нет дольше 3 секунд (например, в «стульчике» сел слишком высоко) — подсказываем постоянно, пока не примет позу
+      if (dbg.holding) {
+        notHoldingSince = -1;
+        if (holdNote) {
+          holdNote = null;
+          refreshTip();
+        }
+      } else {
+        if (notHoldingSince < 0) notHoldingSince = tA;
+        if (!holdNote && tA - notHoldingSince > 3000) {
+          holdNote = info.still;
+          refreshTip();
+          app.voice.say(info.still);
+        }
+      }
+      if (performance.now() - lastDraftAt > 5000) void persistDraft();
       const sec = Math.floor(dbg.holdMs / 1000);
       const every = config.feedback.holdVoiceEverySec;
       if (dbg.holding && sec > 0 && sec % every === 0 && sec !== lastHoldVoiceSec) {
@@ -332,11 +382,24 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     }
   }
 
+  /** Число или время на счётчике. --chars нужен широкой раскладке, чтобы «128» или «10:00» помещались в плашку. */
+  function setCounter(text: string) {
+    if (counter.textContent !== text) counter.textContent = text;
+    const n = String(Math.max(text.length, isHold ? 4 : 2));
+    if (counter.style.getPropertyValue('--chars') !== n) counter.style.setProperty('--chars', n);
+  }
+
   function beginCounting(tA: number) {
     analyzer.startCounting(tA);
     countStartWall = Date.now() - (fileMode ? tA : 0);
+    setId = uuid();
+    reps = [];
+    lastDraftAt = performance.now();
+    statusNote = null;
+    holdNote = null;
+    notHoldingSince = -1;
     setPhase('counting');
-    counter.textContent = isHold ? '0:00' : '0';
+    setCounter(isHold ? '0:00' : '0');
     counter.classList.toggle('time', isHold);
     app.voice.say('Начали');
   }
@@ -372,7 +435,8 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
         }
         if (phase === 'counting') {
           show(paused, status === 'NOT_VISIBLE');
-          if (status === 'WRONG_POSITION') showTip(statusText(exercise, status, phase), false);
+          statusNote = status === 'WRONG_POSITION' || status === 'NO_ROOM' ? statusText(exercise, status, phase) : null;
+          refreshTip();
         }
         if (phase === 'countdown' && status !== 'OK') {
           setPhase('prepare');
@@ -391,7 +455,8 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
         }
       } else if (e.type === 'rep') {
         repIndex = e.rep.index;
-        counter.textContent = String(e.rep.index);
+        reps.push(e.rep);
+        setCounter(String(e.rep.index));
         counter.classList.remove('pulse');
         void counter.offsetWidth;
         counter.classList.add('pulse');
@@ -412,6 +477,7 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
       }
     }
     if (repIndex) {
+      void persistDraft();
       const t = tipCode ? errorType(config, tipCode) : null;
       app.voice.say(numberWord(repIndex) + (t ? '. ' + t.voice : ''));
       if (t) showTip(t.screen, true);
@@ -423,12 +489,66 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     }
   }
 
+  /** Короткая подсказка на 2 секунды; после неё возвращается постоянная строка, если она есть. */
   function showTip(text: string, warn: boolean) {
     tip.textContent = text;
     tip.classList.toggle('warn', warn);
     show(tip, true);
+    tipTransient = true;
     clearTimeout(tipTimer);
-    tipTimer = window.setTimeout(() => show(tip, false), config.feedback.tipVisibleMs);
+    tipTimer = window.setTimeout(() => {
+      tipTransient = false;
+      refreshTip();
+    }, config.feedback.tipVisibleMs);
+  }
+
+  /** Постоянная строка: пока положение неверное или нет позы, она видна, чтобы было понятно, почему счёт стоит. */
+  function refreshTip() {
+    if (tipTransient) return;
+    const note = phase === 'counting' ? statusNote ?? holdNote : null;
+    if (note) {
+      tip.textContent = note;
+      tip.classList.remove('warn');
+      show(tip, true);
+    } else show(tip, false);
+  }
+
+  // ---------- сохранение ----------
+  function makeRecord(p: { totalReps: number; cleanReps: number; holdMs: number; cleanHoldMs: number; side: Side; endWall: number }): SetRecord {
+    const holdMs = Math.min(p.holdMs, config.set.maxDurationMs); // ровно 10 минут удержания тоже сохраняются
+    return {
+      id: setId,
+      exercise,
+      startedAt: new Date(countStartWall).toISOString(),
+      endedAt: new Date(Math.max(p.endWall, countStartWall)).toISOString(),
+      totalReps: p.totalReps,
+      cleanReps: p.cleanReps,
+      ...(isHold ? { holdMs, cleanHoldMs: Math.min(p.cleanHoldMs, holdMs) } : {}),
+      side: p.side,
+      source: fileMode ? 'file' : 'camera',
+      configVersion: config.version,
+    };
+  }
+
+  /** Черновик подхода в истории. Итог при завершении перезапишет его под тем же id. */
+  async function persistDraft() {
+    if (phase !== 'counting' || finalized || !setId) return;
+    lastDraftAt = performance.now();
+    const d = analyzer.debug();
+    if (!d.side || !(isHold ? d.holdMs >= 1000 : reps.length > 0)) return;
+    const record = makeRecord({
+      totalReps: isHold ? 0 : reps.length,
+      cleanReps: isHold ? 0 : reps.filter((r) => r.errors.length === 0).length,
+      holdMs: d.holdMs,
+      cleanHoldMs: d.cleanHoldMs,
+      side: d.side,
+      endWall: fileMode ? countStartWall + lastT : Date.now(),
+    });
+    try {
+      await saveSet(record, isHold ? [] : reps.map((r) => ({ ...r, setId })), config);
+    } catch {
+      /* черновик не критичен: итог сохранится при завершении */
+    }
   }
 
   // ---------- завершение ----------
@@ -453,19 +573,14 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     const summary = analyzer.finish(lastT, reason);
     hook.summary = summary;
     stopEverything();
-    const endWall = fileMode ? countStartWall + summary.durationMs : Date.now();
-    const record: SetRecord = {
-      id: uuid(),
-      exercise,
-      startedAt: new Date(countStartWall).toISOString(),
-      endedAt: new Date(Math.max(endWall, countStartWall)).toISOString(),
+    const record = makeRecord({
       totalReps: summary.totalReps,
       cleanReps: summary.cleanReps,
-      ...(isHold ? { holdMs: summary.holdMs, cleanHoldMs: Math.min(summary.cleanHoldMs, summary.holdMs) } : {}),
+      holdMs: summary.holdMs,
+      cleanHoldMs: summary.cleanHoldMs,
       side: summary.side,
-      source: fileMode ? 'file' : 'camera',
-      configVersion: config.version,
-    };
+      endWall: fileMode ? countStartWall + summary.durationMs : Date.now(),
+    });
     let saveError: string | null = null;
     if (isHold ? summary.holdMs >= 1000 : summary.totalReps > 0) {
       const reps: RepRecord[] = summary.reps.map((r) => ({ ...r, setId: record.id }));
@@ -477,7 +592,8 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     }
     app.last = { summary, record, saveError };
     hook.done = true;
-    if (navigate) app.navigate('/summary');
+    // заменяем запись истории: системная «назад» с итога ведёт на главную, а не снова включает камеру
+    if (navigate) app.navigate('/summary', true);
   }
 
   function stopEverything() {
@@ -503,17 +619,23 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   }
 
   const onHidden = () => {
-    if (document.hidden) app.voice.cancel();
-    else if (!stopped) {
+    if (document.hidden) {
+      app.voice.cancel();
+      // вкладку могут выгрузить в фоне — сохраняем сделанное прямо сейчас
+      void persistDraft();
+    } else if (!stopped) {
       wakeLock = null; // браузер снимает блокировку, когда вкладка скрыта
       void requestWakeLock();
     }
   };
   document.addEventListener('visibilitychange', onHidden);
+  const onPageHide = () => void persistDraft();
+  window.addEventListener('pagehide', onPageHide);
 
   void boot();
   return () => {
     document.removeEventListener('visibilitychange', onHidden);
+    window.removeEventListener('pagehide', onPageHide);
     // системная «назад» на телефоне уводит со страницы минуя кнопки — сохраняем начатый подход
     if (!finalized && phase === 'counting' && didSomething()) void finalize('user', false);
     stopEverything();

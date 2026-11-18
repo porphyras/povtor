@@ -18,7 +18,8 @@ export async function startCamera(opts: CameraOptions): Promise<MediaStream> {
         facingMode: opts.facingMode,
         width: { ideal: opts.width },
         height: { ideal: opts.height },
-        frameRate: { ideal: opts.fps, max: opts.fps },
+        // только «желательно»: жёсткий максимум у камеры с фиксированными 60 кадрами/с дал бы «Камера не найдена»
+        frameRate: { ideal: opts.fps },
       },
     });
   } catch (e) {
@@ -41,7 +42,18 @@ export async function attachStream(video: HTMLVideoElement, stream: MediaStream)
   video.playsInline = true;
   await video.play();
   if (video.readyState < 2) {
-    await new Promise<void>((resolve) => video.addEventListener('loadeddata', () => resolve(), { once: true }));
+    // камера включилась, но кадров нет — не ждём вечно
+    await new Promise<void>((resolve, reject) => {
+      const t = setTimeout(() => reject(new PovtorError('CAMERA_BUSY', 'нет кадров с камеры')), 10000);
+      video.addEventListener(
+        'loadeddata',
+        () => {
+          clearTimeout(t);
+          resolve();
+        },
+        { once: true },
+      );
+    });
   }
 }
 

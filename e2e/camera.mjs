@@ -56,6 +56,7 @@ try {
 }
 console.log('ошибки страницы:', errors.length ? errors : 'нет');
 console.log('запросы к другим сайтам:', external.length ? external : 'нет');
+if (external.length) code = 1;
 await browser.close();
 server?.kill();
 process.exit(code);

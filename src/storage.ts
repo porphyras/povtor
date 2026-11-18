@@ -1,17 +1,16 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { AppConfig } from './config';
 import { PovtorError } from './errors';
-import { toCsv, validateSet } from './history';
-import type { Exercise, RepRecord, SetRecord } from './types';
+import { isSaneSet, toCsv, validateSet } from './history';
+import type { RepRecord, SetRecord } from './types';
 
 export interface Settings {
   key: 'main';
   voiceEnabled: boolean;
   modelVariant: 'auto' | 'lite' | 'full';
-  lastExercise: Exercise;
 }
 
-export const DEFAULT_SETTINGS: Settings = { key: 'main', voiceEnabled: true, modelVariant: 'auto', lastExercise: 'squat' };
+export const DEFAULT_SETTINGS: Settings = { key: 'main', voiceEnabled: true, modelVariant: 'auto' };
 
 interface PovtorDB extends DBSchema {
   sets: { key: string; value: SetRecord; indexes: { byStart: string } };
@@ -31,6 +30,15 @@ function db(): Promise<IDBPDatabase<PovtorDB>> {
       reps.createIndex('bySet', 'setId');
       d.createObjectStore('settings', { keyPath: 'key' });
     },
+    // браузер оборвал соединение (бывает на iOS после фона) — в следующий раз откроем заново
+    terminated() {
+      dbPromise = null;
+    },
+    // другая вкладка открывает новую версию базы — уступаем ей, сами переоткроемся при следующем обращении
+    blocking(_current, _next, event) {
+      (event.target as IDBDatabase).close();
+      dbPromise = null;
+    },
   }).catch((e) => {
     dbPromise = null;
     throw new PovtorError('STORAGE_UNAVAILABLE', String(e));
@@ -42,16 +50,17 @@ function wrap(e: unknown): PovtorError {
   if (e instanceof PovtorError) return e;
   const name = (e as DOMException)?.name;
   if (name === 'QuotaExceededError') return new PovtorError('STORAGE_FULL', name);
+  // соединение закрыто — следующая попытка откроет базу заново
+  if (name === 'InvalidStateError') dbPromise = null;
   return new PovtorError('STORAGE_UNAVAILABLE', String(e));
 }
 
-export async function storageAvailable(): Promise<boolean> {
-  try {
-    await db();
-    return true;
-  } catch {
-    return false;
-  }
+let persistAsked = false;
+/** Просим браузер не удалять историю при нехватке места (Safari иначе может стереть её через 7 дней без посещений). */
+function askPersist(): void {
+  if (persistAsked) return;
+  persistAsked = true;
+  navigator.storage?.persist?.().catch(() => undefined);
 }
 
 /** Сохраняет подход и повторения одной транзакцией. */
@@ -64,28 +73,27 @@ export async function saveSet(set: SetRecord, reps: RepRecord[], config: AppConf
   try {
     const d = await db();
     const tx = d.transaction(['sets', 'reps'], 'readwrite');
-    await Promise.all([tx.objectStore('sets').put(set), ...reps.map((r) => tx.objectStore('reps').put(r)), tx.done]);
+    const store = tx.objectStore('reps');
+    // черновик подхода мог сохранить больше повторений, чем итог (не бывает, но лишние не оставляем)
+    const old = await store.index('bySet').getAllKeys(set.id);
+    await Promise.all([
+      tx.objectStore('sets').put(set),
+      ...old.filter(([, i]) => i > reps.length).map((k) => store.delete(k)),
+      ...reps.map((r) => store.put(r)),
+      tx.done,
+    ]);
   } catch (e) {
     throw wrap(e);
   }
+  askPersist();
 }
 
-/** Подходы за период, новые сверху. */
-export async function listSets(range?: { from?: string; to?: string }): Promise<SetRecord[]> {
+/** Все подходы, новые сверху. Испорченные записи пропускаются. */
+export async function listSets(): Promise<SetRecord[]> {
   try {
     const d = await db();
     const all = await d.getAllFromIndex('sets', 'byStart');
-    return all.filter((s) => (!range?.from || s.startedAt >= range.from) && (!range?.to || s.startedAt <= range.to)).reverse();
-  } catch (e) {
-    throw wrap(e);
-  }
-}
-
-export async function repsOf(setId: string): Promise<RepRecord[]> {
-  try {
-    const d = await db();
-    const reps = await d.getAllFromIndex('reps', 'bySet', setId);
-    return reps.sort((a, b) => a.index - b.index);
+    return all.filter(isSaneSet).reverse();
   } catch (e) {
     throw wrap(e);
   }
@@ -94,7 +102,7 @@ export async function repsOf(setId: string): Promise<RepRecord[]> {
 export async function exportCsv(config: AppConfig): Promise<Blob> {
   try {
     const d = await db();
-    const sets = (await d.getAllFromIndex('sets', 'byStart')).reverse();
+    const sets = (await d.getAllFromIndex('sets', 'byStart')).filter(isSaneSet).reverse();
     const reps = await d.getAll('reps');
     const bySet = new Map<string, RepRecord[]>();
     for (const r of reps) bySet.set(r.setId, [...(bySet.get(r.setId) ?? []), r]);

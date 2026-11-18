@@ -6,9 +6,6 @@ import { h, svg } from './dom';
 export function renderHome(root: HTMLElement, app: App): () => void {
   const start = (ex: Exercise) => {
     app.voice.unlock(); // жест пользователя: разрешаем голос на iOS
-    app.exercise = ex;
-    app.settings.lastExercise = ex;
-    app.persistSettings();
     app.navigate('/session/' + ex);
   };
   const voiceToggle = h('input', {
@@ -31,7 +28,7 @@ export function renderHome(root: HTMLElement, app: App): () => void {
       },
     },
     h('option', { value: 'auto', selected: app.settings.modelVariant === 'auto' }, 'Автоматически'),
-    h('option', { value: 'lite', selected: app.settings.modelVariant === 'lite' }, 'Облегчённая: быстрее, но подсказки менее точные'),
+    h('option', { value: 'lite', selected: app.settings.modelVariant === 'lite' }, 'Облегчённая (быстрее, но менее точная)'),
     h('option', { value: 'full', selected: app.settings.modelVariant === 'full' }, 'Точная'),
   );
   const inApp = /Telegram|VKAndroidApp|VKClient|vkclient|Instagram|FBAN|FBAV|; wv\)/i.test(navigator.userAgent);

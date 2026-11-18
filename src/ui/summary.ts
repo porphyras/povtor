@@ -77,14 +77,22 @@ export function renderSummary(root: HTMLElement, app: App): () => void {
       errList(),
     );
   }
+  const st = app.config.set;
+  const sec = (ms: number) => Math.round(ms / 1000);
+  const min = (ms: number) => Math.round(ms / 60000);
+  const awaySec = sec(st.awayStopMs);
+  const idleMin = min(st.idleStopMs);
+  const maxMin = min(st.maxDurationMs);
   const reasonText =
     summary.finishReason === 'away'
-      ? 'Подход закончился сам: тебя не было видно 8 секунд или ты вышел из позы.'
+      ? `Подход закончился сам: тебя не было видно ${awaySec} ${plural(awaySec, 'секунду', 'секунды', 'секунд')} или ты вышел из позы.`
       : summary.finishReason === 'idle'
-        ? 'Подход закончился сам: целую минуту не было движения.'
+        ? `Подход закончился сам: ${idleMin === 1 ? 'целую минуту' : `${idleMin} ${plural(idleMin, 'минуту', 'минуты', 'минут')}`} не было движения.`
         : summary.finishReason === 'maxDuration'
-          ? 'Подход закончился сам: прошло 10 минут.'
-          : null;
+          ? `Подход закончился сам: прошло ${maxMin} ${plural(maxMin, 'минута', 'минуты', 'минут')}.`
+          : summary.finishReason === 'maxReps'
+            ? `Подход закончился сам: это максимум для одного подхода — ${st.maxReps} ${plural(st.maxReps, 'повторение', 'повторения', 'повторений')}.`
+            : null;
   const view = h(
     'main',
     { class: 'screen summary' },

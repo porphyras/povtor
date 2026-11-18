@@ -19,11 +19,13 @@ export function numberWord(n: number): string {
 export function createVoice(enabled: boolean): Voice {
   const synth: SpeechSynthesis | undefined = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
   let ru: SpeechSynthesisVoice | null = null;
+  let anyVoices = false;
   const pickVoice = () => {
     const voices = synth?.getVoices() ?? [];
-    const russian = voices.filter((v) => v.lang?.toLowerCase().startsWith('ru'));
-    // локальный голос работает без сети (сетевые голоса Chrome под CSP всё равно недоступны)
-    ru = russian.find((v) => v.localService) ?? russian[0] ?? null;
+    anyVoices = voices.length > 0;
+    // Только голос, который синтезирует речь на самом устройстве. Сетевые голоса (например, «Google русский»
+    // в Chrome на компьютере) отправляют текст подсказок на сервер — браузер делает это в обход политики безопасности страницы.
+    ru = voices.find((v) => v.lang?.toLowerCase().startsWith('ru') && v.localService) ?? null;
   };
   if (synth) {
     pickVoice();
@@ -31,6 +33,8 @@ export function createVoice(enabled: boolean): Voice {
   }
   const speak = (text: string, volume = 1) => {
     if (!synth) return;
+    // список голосов уже пришёл, а русского локального в нём нет — лучше промолчать, чем отдать текст в сеть
+    if (!ru && anyVoices) return;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'ru-RU';
     if (ru) u.voice = ru;

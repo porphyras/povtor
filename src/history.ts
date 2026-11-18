@@ -1,16 +1,16 @@
 // Чистые функции для истории: проверка подхода перед сохранением, CSV, статистика по дням.
-import { CATALOG, exerciseName, formatDuration } from './catalog';
+import { CATALOG, exerciseName, formatDuration, isExercise } from './catalog';
 import type { AppConfig } from './config';
 import type { ErrorCode, RepRecord, SetRecord } from './types';
 
 /** Подход на удержание (планка, «стульчик»): вместо повторений — время в позе. */
-export const isHoldSet = (s: SetRecord) => CATALOG[s.exercise]?.kind === 'hold';
+export const isHoldSet = (s: SetRecord) => isExercise(s.exercise) && CATALOG[s.exercise].kind === 'hold';
 
 /** Возвращает список нарушений; пустой список — данные можно сохранять. */
 export function validateSet(set: SetRecord, reps: RepRecord[], config: AppConfig): string[] {
   const p: string[] = [];
   if (typeof set.id !== 'string' || set.id.length < 8) p.push('id');
-  if (!(set.exercise in CATALOG)) p.push('exercise');
+  if (!isExercise(set.exercise)) p.push('exercise');
   const st = Date.parse(set.startedAt);
   const en = Date.parse(set.endedAt);
   if (Number.isNaN(st) || Number.isNaN(en) || en < st) p.push('startedAt/endedAt');
@@ -54,9 +54,35 @@ const localTime = (iso: string) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-function csvCell(v: string | number): string {
-  const s = String(v);
-  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+/** Ячейка CSV. Текст, который начинается с =, +, -, @ или служебного символа, Excel принял бы за формулу,
+ *  поэтому перед ним ставится апостроф. Числа не трогаем. */
+export function csvCell(v: string | number): string {
+  let s = String(v);
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/** Запись из базы похожа на настоящий подход: при чтении отбрасываем испорченные и чужие записи,
+ *  чтобы они не попали ни в график, ни в выгрузку. */
+export function isSaneSet(s: unknown): s is SetRecord {
+  const r = s as SetRecord;
+  const int = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 100000;
+  const optMs = (n: unknown) => n === undefined || (typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 24 * 3600 * 1000);
+  return (
+    !!r &&
+    typeof r === 'object' &&
+    typeof r.id === 'string' &&
+    isExercise(r.exercise) &&
+    typeof r.startedAt === 'string' &&
+    !Number.isNaN(Date.parse(r.startedAt)) &&
+    typeof r.endedAt === 'string' &&
+    !Number.isNaN(Date.parse(r.endedAt)) &&
+    int(r.totalReps) &&
+    int(r.cleanReps) &&
+    optMs(r.holdMs) &&
+    optMs(r.cleanHoldMs) &&
+    typeof r.configVersion === 'string'
+  );
 }
 
 /** CSV для Excel: UTF-8 с BOM, разделитель «;». */
@@ -72,7 +98,7 @@ export function toCsv(sets: SetRecord[], repsBySet: Map<string, RepRecord[]>, co
     const sec = (ms?: number) => (hold && typeof ms === 'number' ? Math.round(ms / 1000) : '');
     return [localDate(s.startedAt), localTime(s.startedAt), exerciseName(s.exercise), hold ? '' : s.totalReps, hold ? '' : s.cleanReps, sec(s.holdMs), sec(s.cleanHoldMs), errText, dur, s.configVersion];
   });
-  return '﻿' + [head, ...rows].map((r) => r.map(csvCell).join(';')).join('\r\n') + '\r\n';
+  return '\uFEFF' + [head, ...rows].map((r) => r.map(csvCell).join(';')).join('\r\n') + '\r\n';
 }
 
 export interface DayStat {
