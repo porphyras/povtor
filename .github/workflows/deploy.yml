@@ -9,9 +9,10 @@ on:
 permissions:
   contents: read
 
+# публикации идут по очереди: начатую не отменяем, иначе значок в README на время показывает «failing»
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
