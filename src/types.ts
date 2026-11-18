@@ -1,4 +1,15 @@
-export type Exercise = 'squat' | 'pushup';
+export type Exercise =
+  | 'squat'
+  | 'lunge'
+  | 'bridge'
+  | 'wallsit'
+  | 'pushup'
+  | 'curl'
+  | 'press'
+  | 'raise'
+  | 'crunch'
+  | 'plank';
+export type ExerciseKind = 'reps' | 'hold';
 export type Side = 'left' | 'right';
 
 export type ErrorCode =
@@ -6,7 +17,19 @@ export type ErrorCode =
   | 'SQUAT_LEAN'
   | 'PUSHUP_HIP_SAG'
   | 'PUSHUP_HIP_PIKE'
-  | 'PUSHUP_DEPTH';
+  | 'PUSHUP_DEPTH'
+  | 'LUNGE_DEPTH'
+  | 'LUNGE_LEAN'
+  | 'BRIDGE_HEIGHT'
+  | 'WALLSIT_HIGH'
+  | 'CURL_SWING'
+  | 'CURL_ELBOW'
+  | 'PRESS_LOCKOUT'
+  | 'RAISE_LOW'
+  | 'RAISE_HIGH'
+  | 'CRUNCH_LOW'
+  | 'PLANK_SAG'
+  | 'PLANK_PIKE';
 
 export interface Landmark {
   x: number;
@@ -29,6 +52,7 @@ export interface Rep {
   index: number;
   tStartMs: number; // от начала подхода
   tEndMs: number;
+  /** Крайний угол повторения: минимум для упражнений «вниз», максимум для упражнений «вверх». */
   minAngle: number;
   errors: ErrorCode[];
 }
@@ -43,13 +67,18 @@ export type AnalyzerEvent =
   | { type: 'rep'; rep: Rep }
   | { type: 'tip'; code: ErrorCode }
   | { type: 'hint'; code: 'STAND_STILL' }
+  | { type: 'hold'; holding: boolean }
   | { type: 'finish'; reason: FinishReason };
 
 export interface SetSummary {
   exercise: Exercise;
+  kind: ExerciseKind;
   side: Side;
   totalReps: number;
   cleanReps: number;
+  /** Для удержания: сколько времени человек был в позе и сколько из него — без ошибок. */
+  holdMs: number;
+  cleanHoldMs: number;
   errorsCount: Partial<Record<ErrorCode, number>>;
   reps: Rep[];
   durationMs: number;
@@ -63,6 +92,9 @@ export interface SetRecord {
   endedAt: string;
   totalReps: number;
   cleanReps: number;
+  /** Только для упражнений на удержание (планка, «стульчик»). */
+  holdMs?: number;
+  cleanHoldMs?: number;
   side: Side;
   source: 'camera' | 'file';
   configVersion: string;

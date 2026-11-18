@@ -16,6 +16,12 @@ export const CASES = [
   { name: 'squat_side_two_people', exercise: 'squat', video: 'test-videos/squat_side_two_people.mp4', expect: [2, 4], note: 'двое в кадре, модель берёт одного' },
   { name: 'squat_side_cuts', exercise: 'squat', video: 'test-videos/squat_side_cuts.mp4', expect: [0, 2], note: 'склейки и смена ракурса' },
   { name: 'squat_front', exercise: 'squat', video: 'test-videos/squat_front.mp4', expect: [0, 0], status: 'WRONG_POSITION', note: 'анфас — должен попросить встать боком' },
+  { name: 'lunge_side', exercise: 'lunge', video: 'test-videos/lunge_side.mp4', expect: [1, 1], note: '1 полный выпад; первый начат до записи, последний оборван' },
+  { name: 'lunge_side_far', exercise: 'lunge', video: 'test-videos/lunge_side_far.mp4', expect: [3, 3], note: '3 полных выпада с шагом, человек далеко' },
+  { name: 'curl_diagonal', exercise: 'curl', video: 'test-videos/curl_diagonal.mp4', expect: [0, 0], note: 'ракурс три четверти — не считаем, просим встать боком' },
+  { name: 'plank_side', exercise: 'plank', video: 'test-videos/plank_side.mp4', expect: [0, 0], hold: [10, 17], note: 'планка на локтях, в начале камера двигается' },
+  { name: 'situp_side', exercise: 'crunch', video: 'test-videos/situp_side.mp4', expect: [2, 2], note: '2 полных подъёма, третий оборван наверху' },
+  { name: 'crunch_side', exercise: 'crunch', video: 'test-videos/crunch_side.mp4', expect: [0, 0], note: 'V-образные скручивания сидя — другое упражнение, не считаем' },
 ];
 
 function startServer() {
@@ -73,9 +79,10 @@ async function main() {
       };
     });
     const total = hook.summary?.totalReps ?? 0;
-    const okCount = total >= c.expect[0] && total <= c.expect[1];
+    const holdSec = Math.round((hook.summary?.holdMs ?? 0) / 1000);
+    const okCount = total >= c.expect[0] && total <= c.expect[1] && (!c.hold || (holdSec >= c.hold[0] && holdSec <= c.hold[1]));
     const okStatus = !c.status || hook.statuses.includes(c.status);
-    results.push({ name: c.name, total, clean: hook.summary?.cleanReps ?? 0, expect: c.expect.join('–'), pass: okCount && okStatus, error: hook.error, engine: hook.engine, frames: hook.frames, sec: ((Date.now() - t0) / 1000).toFixed(1), statuses: [...new Set(hook.statuses)].join(','), reps: hook.reps, logs: logs.slice(0, 5), note: c.note });
+    results.push({ name: c.name, total, holdSec, cleanHoldSec: Math.round((hook.summary?.cleanHoldMs ?? 0) / 1000), errorsCount: hook.summary?.errorsCount, clean: hook.summary?.cleanReps ?? 0, expect: c.expect.join('–'), pass: okCount && okStatus, error: hook.error, engine: hook.engine, frames: hook.frames, sec: ((Date.now() - t0) / 1000).toFixed(1), statuses: [...new Set(hook.statuses)].join(','), reps: hook.reps, logs: logs.slice(0, 5), note: c.note });
     await page.close();
   }
   await browser.close();
@@ -83,7 +90,7 @@ async function main() {
   mkdirSync(new URL('./out', import.meta.url), { recursive: true });
   writeFileSync(new URL(`./out/results-${browserName}.json`, import.meta.url), JSON.stringify(results, null, 2));
   for (const r of results) {
-    console.log(`${r.pass ? 'OK  ' : 'FAIL'} ${r.name.padEnd(24)} повторений ${String(r.total).padStart(2)} (чистых ${r.clean}), ожидали ${r.expect}; статусы: ${r.statuses}; кадров ${r.frames}; ${r.sec} с; модель ${r.engine?.variant}/${r.engine?.delegate}${r.error ? '; ошибка ' + r.error : ''}`);
+    console.log(`${r.pass ? 'OK  ' : 'FAIL'} ${r.name.padEnd(24)} повторений ${String(r.total).padStart(2)} (чистых ${r.clean})${r.holdSec ? `, в позе ${r.holdSec} с (без ошибок ${r.cleanHoldSec} с) ${JSON.stringify(r.errorsCount)}` : ''}, ожидали ${r.expect}; статусы: ${r.statuses}; кадров ${r.frames}; ${r.sec} с; модель ${r.engine?.variant}/${r.engine?.delegate}${r.error ? '; ошибка ' + r.error : ''}`);
     for (const rep of r.reps) console.log(`       #${rep.index} ${rep.tStartMs}–${rep.tEndMs} мс, мин. угол ${rep.minAngle}, ошибки: ${rep.errors.join(',') || '—'}`);
     for (const l of r.logs) console.log('       ' + l);
   }

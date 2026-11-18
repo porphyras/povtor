@@ -1,9 +1,7 @@
 import type { App } from '../app';
+import { EXERCISES, GROUPS } from '../catalog';
 import type { Exercise } from '../types';
 import { h, svg } from './dom';
-
-export const SQUAT_ICON = `<svg viewBox="0 0 64 64" width="44" height="44" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="33" cy="9" r="6"/><path d="M31 16 L24 34 L42 36 L40 56 M29 22 L48 22 M36 56 L46 56"/></svg>`;
-export const PUSHUP_ICON = `<svg viewBox="0 0 64 64" width="44" height="44" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="30" r="6"/><path d="M18 34 L56 44 M22 35 L20 50 M56 44 L58 50"/></svg>`;
 
 export function renderHome(root: HTMLElement, app: App): () => void {
   const start = (ex: Exercise) => {
@@ -37,6 +35,15 @@ export function renderHome(root: HTMLElement, app: App): () => void {
     h('option', { value: 'full', selected: app.settings.modelVariant === 'full' }, 'Точная'),
   );
   const inApp = /Telegram|VKAndroidApp|VKClient|vkclient|Instagram|FBAN|FBAV|; wv\)/i.test(navigator.userAgent);
+
+  const card = (ex: (typeof EXERCISES)[number]) =>
+    h(
+      'button',
+      { class: 'choice', id: 'start-' + ex.id, onclick: () => start(ex.id) },
+      svg(ex.icon),
+      h('span', { class: 'choice-text' }, h('span', { class: 'choice-name' }, ex.name), h('small', null, `${ex.view === 'side' ? 'боком' : 'лицом'} к камере${ex.kind === 'hold' ? ', на время' : ''}`)),
+    );
+
   const view = h(
     'main',
     { class: 'screen home' },
@@ -44,11 +51,8 @@ export function renderHome(root: HTMLElement, app: App): () => void {
       ? h('p', { class: 'warnline', role: 'alert' }, 'Похоже, ссылка открыта внутри мессенджера. Камера здесь может не работать: открой «Повтор» в Chrome, Яндекс Браузере или Safari (меню мессенджера → «Открыть в браузере»).')
       : null,
     h('header', { class: 'home-head' }, h('h1', null, 'Повтор'), h('p', { class: 'lead' }, 'Что делаем сегодня?')),
-    h(
-      'div',
-      { class: 'choices' },
-      h('button', { class: 'choice', id: 'start-squat', onclick: () => start('squat') }, svg(SQUAT_ICON), h('span', null, 'Приседания')),
-      h('button', { class: 'choice', id: 'start-pushup', onclick: () => start('pushup') }, svg(PUSHUP_ICON), h('span', null, 'Отжимания')),
+    ...GROUPS.map((g) =>
+      h('section', { class: 'group' }, h('h2', null, g.name), h('div', { class: 'choices' }, ...EXERCISES.filter((e) => e.group === g.id).map(card))),
     ),
     h(
       'section',
@@ -57,8 +61,8 @@ export function renderHome(root: HTMLElement, app: App): () => void {
       h(
         'ol',
         null,
-        h('li', null, 'Поставь телефон экраном к себе на стул или пол в 2–3 метрах и встань к нему боком.'),
-        h('li', null, 'Для приседаний телефон вертикально, для отжиманий горизонтально.'),
+        h('li', null, 'Поставь телефон экраном к себе на стул или пол в 2–3 метрах.'),
+        h('li', null, 'Встань к нему боком или лицом — как подписано у упражнения. Перед стартом приложение подскажет, что делать.'),
         h('li', null, 'Камера должна видеть тебя целиком, с головы до ног.'),
       ),
     ),

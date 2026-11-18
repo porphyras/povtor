@@ -1,53 +1,14 @@
 // Анализатор подхода: чистые функции, без DOM. Слои:
-// 1) сигнал (угол в колене или локте), 2) сглаживание, 3) автомат с подстройкой под стойку, 4) правила техники.
-import type { AppConfig, ExerciseConfig } from '../config';
+// 1) сигнал (угол из описания упражнения), 2) сглаживание, 3) автомат с подстройкой под стойку, 4) правила техники.
+// Упражнения на удержание (планка, «стульчик») идут отдельной веткой: копится время в позе.
+//
+// Автомат работает в «пространстве сигнала» s: для упражнений «вниз» s = угол, для упражнений «вверх» s = 360 − угол.
+// Тогда исходное положение — всегда большие s, а повторение — провал s и возврат.
+import type { AppConfig, RepConfig } from '../config';
 import { errorType } from '../config';
-import type {
-  AnalyzerEvent,
-  ErrorCode,
-  Exercise,
-  FinishReason,
-  MachineState,
-  PoseFrame,
-  Rep,
-  SetSummary,
-  Side,
-  Status,
-} from '../types';
-import {
-  allVisible,
-  angleAt,
-  angleAt3,
-  hipOffsetFromLine,
-  jointIndex,
-  median3,
-  px,
-  shoulderRatio,
-  thighAngle,
-  tiltFromHorizontal,
-  tiltFromVertical,
-  visibilityOf,
-} from './geometry';
-
-/** Суставы, по которым считаем повторение: угол берётся в средней точке. */
-function countJoints(exercise: Exercise, side: Side): [number, number, number] {
-  return exercise === 'squat'
-    ? [jointIndex(side, 'hip'), jointIndex(side, 'knee'), jointIndex(side, 'ankle')]
-    : [jointIndex(side, 'shoulder'), jointIndex(side, 'elbow'), jointIndex(side, 'wrist')];
-}
-
-/** Точки, по видимости которых выбираем сторону (сбоку дальняя сторона закрыта телом). */
-function sideJoints(exercise: Exercise, side: Side): number[] {
-  return exercise === 'squat'
-    ? (['shoulder', 'hip', 'knee', 'ankle'] as const).map((j) => jointIndex(side, j))
-    : (['shoulder', 'elbow', 'wrist', 'hip', 'knee'] as const).map((j) => jointIndex(side, j));
-}
-
-interface Bottom {
-  thigh: number; // угол бедра к горизонтали, > 0 — таз выше колена
-  torsoTilt: number; // наклон корпуса от вертикали; NaN, если плечо не видно
-  bodyTilt: number; // для отжиманий: наклон тела от горизонтали; NaN, если не посчитать
-}
+import type { AnalyzerEvent, ErrorCode, Exercise, FinishReason, MachineState, PoseFrame, Rep, SetSummary, Side, Status } from '../types';
+import { allVisible, median3 } from './geometry';
+import { newTrack, SPECS, type Ctx, type ExerciseSpec, type PosMode, type RepTrack } from './exercises';
 
 export interface AnalyzerDebug {
   phase: 'prepare' | 'counting' | 'finished';
@@ -55,12 +16,15 @@ export interface AnalyzerDebug {
   status: Status | null;
   side: Side;
   sideLocked: boolean;
-  angle: number | null;
+  angle: number | null; // сглаженный сигнал, естественный угол
   rawAngle: number | null;
   reps: number;
-  top: number;
+  top: number; // текущие пороги, естественные углы
   start: number;
   ref: number | null;
+  holdMs: number;
+  cleanHoldMs: number;
+  holding: boolean;
 }
 
 export interface Analyzer {
@@ -74,16 +38,26 @@ export interface Analyzer {
 }
 
 export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer {
-  const ex: ExerciseConfig = exercise === 'squat' ? config.squat : config.pushup;
+  const spec: ExerciseSpec = SPECS[exercise];
+  const isHold = spec.kind === 'hold';
+  const rcfg = (isHold ? null : config.exercises[exercise]) as RepConfig | null;
+  const up = rcfg?.direction === 'up';
+  const S = (x: number) => (up ? 360 - x : x); // в пространство сигнала и обратно (инволюция)
+  const sTop = rcfg ? S(rcfg.top) : 0;
+  const sStart = rcfg ? S(rcfg.start) : 0;
+  const sAttempt = rcfg ? S(rcfg.attempt) : 0;
+  const topMargin = rcfg?.topMargin ?? config.calibration.topMargin;
+  const startMargin = rcfg?.startMargin ?? config.calibration.startMargin;
+  const topHoldMs = rcfg?.topHoldMs ?? 500;
+  const minRepMs = rcfg?.minRepMs ?? 400;
   const visMin = config.visibility.min;
   const { tauMs, gapResetMs } = config.smoothing;
-  const { topMargin, startMargin } = config.calibration;
 
   let phase: 'prepare' | 'counting' | 'finished' = 'prepare';
   let state: MachineState = 'WAITING';
   let status: Status | null = null;
   let side: Side = 'left';
-  let sideLocked = false; // сторону фиксируем только при входе в «вверху»
+  let sideLocked = spec.view === 'front'; // спереди сторона не нужна
   let lastT = -Infinity;
 
   // видимость сторон за последнюю секунду
@@ -92,55 +66,62 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   let ready = false;
   let invisibleSince: number | null = null;
 
-  // сигнал и сглаживание
+  // сигнал и сглаживание (в пространстве s)
   let ema: number | null = null;
   let emaT = 0;
+  let lastDt = 0;
   let raw: number | null = null;
   const rawBuf: number[] = [];
 
-  // автомат
+  // автомат повторений
   let countStart = 0;
   let lastRepAt = 0;
-  let stand: { t: number; v: number }[] = []; // окно стойки для калибровки
-  let topRun = 0; // кадров подряд выше порога «верх» (вход без замирания)
+  let stand: { t: number; v: number }[] = [];
+  let topRun = 0;
   let waitingOkSince: number | null = null;
   let lastHintAt = -Infinity;
-  let wrongSince: number | null = null; // неверное положение во время подхода
-  let awaySince: number | null = null; // человек ушёл или встал из упора после повторений
-  let ref: number | null = null; // угол в стойке
-  let topThr = ex.top;
-  let startThr = ex.start;
+  let wrongSince: number | null = null;
+  let awaySince: number | null = null;
+  let ref: number | null = null; // опорный сигнал стойки (s)
+  let topThr = sTop;
+  let startThr = sStart;
   let repStart = 0;
-  let minAngle = Infinity; // по медиане трёх сырых значений
-  let minEma = Infinity; // по сглаженному сигналу
-  let riseMax = -Infinity; // максимум после нижней точки (для «мягкого верха»)
+  let minS = Infinity; // по медиане трёх сырых значений
+  let minEma = Infinity;
+  let riseMax = -Infinity;
   let riseMaxT = 0;
-  let bottom: Bottom | null = null;
-  let lineBadSince: number | null = null;
-  let lineBadMax = 0;
-  let lineOffset = NaN;
-  let lineWorst = Infinity;
+  let track: RepTrack = newTrack();
   let lastTipAt = -Infinity;
   let finishedReason: FinishReason | null = null;
   const reps: Rep[] = [];
 
+  // удержание
+  let holding = false;
+  let holdMs = 0;
+  let cleanHoldMs = 0;
+  let outOfPoseSince: number | null = null;
+  let badSince: number | null = null;
+  let badCode: ErrorCode | null = null; // ошибка, которая держится сейчас
+  const holdErrors: Partial<Record<ErrorCode, number>> = {};
+
   const priority = (code: ErrorCode) => errorType(config, code).priority;
+  const ctx = (frame: PoseFrame): Ctx => ({ f: frame, side, config, visMin });
 
   // ---------- сторона и положение ----------
   function meanOf(frame: PoseFrame, s: Side, key: 'visibility' | 'z'): number {
-    const idx = sideJoints(exercise, s);
+    const idx = spec.sidePoints(s);
+    if (!idx.length) return 0;
     return idx.reduce((acc, i) => acc + (frame.landmarks[i]?.[key] ?? 0), 0) / idx.length;
   }
 
   function updateWindow(frame: PoseFrame | null, tMs: number) {
-    if (frame) {
-      window.push({ t: tMs, l: meanOf(frame, 'left', 'visibility'), r: meanOf(frame, 'right', 'visibility'), lz: meanOf(frame, 'left', 'z'), rz: meanOf(frame, 'right', 'z') });
-    }
+    if (spec.view === 'front') return;
+    if (frame) window.push({ t: tMs, l: meanOf(frame, 'left', 'visibility'), r: meanOf(frame, 'right', 'visibility'), lz: meanOf(frame, 'left', 'z'), rz: meanOf(frame, 'right', 'z') });
     while (window.length && tMs - window[0].t > 1000) window.shift();
   }
 
   function bestSide(): Side {
-    if (window.length === 0) return side;
+    if (spec.view === 'front' || window.length === 0) return side;
     let l = 0, r = 0, lz = 0, rz = 0;
     for (const w of window) {
       l += w.l;
@@ -148,34 +129,23 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
       lz += w.lz;
       rz += w.rz;
     }
-    const n = window.length;
-    if (Math.abs(l - r) / n < 0.1) return lz <= rz ? 'left' : 'right'; // видимость почти равна — берём ближнюю к камере
+    if (Math.abs(l - r) / window.length < 0.1) return lz <= rz ? 'left' : 'right'; // видимость почти равна — берём ближнюю к камере
     return l >= r ? 'left' : 'right';
   }
 
-  /** Наклон тела от горизонтали для отжиманий: по плечу и колену (или тазу, если колено не видно). */
-  function bodyTilt(frame: PoseFrame, s: Side): number {
-    const shoulder = px(frame, jointIndex(s, 'shoulder'));
-    const kneeI = jointIndex(s, 'knee');
-    const far = visibilityOf(frame, kneeI) >= visMin ? px(frame, kneeI) : px(frame, jointIndex(s, 'hip'));
-    return tiltFromHorizontal(shoulder, far);
-  }
+  const positionOk = (frame: PoseFrame, mode: PosMode) => spec.position(ctx(frame), mode);
 
   /**
-   * Во всех режимах человек должен стоять боком к камере.
-   * prepare — подготовка: для приседаний корпус вертикально, для отжиманий можно стоять.
-   * stance — исходное положение: приседания — корпус вертикально, отжимания — тело почти горизонтально.
-   * motion — во время повторения: для приседаний корпус может наклоняться, для отжиманий тело горизонтально.
+   * Нужные точки видны. Для упражнений лицом к камере: если видна только одна сторона, человек стоит боком —
+   * считаем его видимым, а проверка положения скажет «Встань лицом к камере» вместо «Отойди дальше».
    */
-  function positionOk(frame: PoseFrame, s: Side, mode: 'prepare' | 'stance' | 'motion'): boolean {
-    const ratio = shoulderRatio(frame);
-    if (!Number.isNaN(ratio) && ratio > config.position.maxShoulderRatio) return false; // стоит лицом к камере
-    if (exercise === 'squat') {
-      if (mode === 'motion') return true;
-      return !(tiltFromVertical(px(frame, jointIndex(s, 'shoulder')), px(frame, jointIndex(s, 'hip'))) > config.position.squatMaxTorsoTilt);
-    }
-    if (mode === 'prepare') return true;
-    return !(bodyTilt(frame, s) > config.position.pushupMaxBodyTilt);
+  function visibleFor(frame: PoseFrame | null): boolean {
+    if (!frame) return false;
+    const pts = spec.countPoints(side);
+    if (allVisible(frame, pts, visMin)) return true;
+    if (spec.view !== 'front') return false;
+    const half = pts.length / 2;
+    return allVisible(frame, pts.slice(0, half), visMin) || allVisible(frame, pts.slice(half), visMin);
   }
 
   function setStatus(next: Status, out: AnalyzerEvent[]) {
@@ -196,17 +166,6 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   }
 
   // ---------- сигнал ----------
-  function signal(frame: PoseFrame, s: Side): number {
-    const [a, b, c] = countJoints(exercise, s);
-    if (ex.signal === 'angle3d' && frame.world && frame.world.length >= 33) {
-      const v = angleAt3(frame.world[a], frame.world[b], frame.world[c]);
-      if (!Number.isNaN(v)) return v;
-    }
-    return angleAt(px(frame, a), px(frame, b), px(frame, c));
-  }
-
-  let lastDt = 0; // интервал до предыдущего кадра
-
   /** Экспоненциальное сглаживание с учётом реального интервала между кадрами. */
   function smooth(v: number, tMs: number): number {
     lastDt = ema === null ? 0 : tMs - emaT;
@@ -235,22 +194,21 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   function pushPrepare(frame: PoseFrame | null, tMs: number, out: AnalyzerEvent[]) {
     updateWindow(frame, tMs);
     side = bestSide();
-    const visible = !!frame && allVisible(frame, countJoints(exercise, side), visMin);
-    const gate = visibilityGate(visible, tMs);
+    const gate = visibilityGate(visibleFor(frame), tMs);
     if (gate === 'lost' || (gate === 'grace' && status === null)) setStatus('NOT_VISIBLE', out);
-    else if (gate === 'visible' && frame) setStatus(positionOk(frame, side, 'prepare') ? 'OK' : 'WRONG_POSITION', out);
+    else if (gate === 'visible' && frame) setStatus(positionOk(frame, 'prepare') ? 'OK' : 'WRONG_POSITION', out);
     if (status === 'OK' && gate === 'visible') {
       if (okSince === null) okSince = tMs;
     } else if (gate !== 'grace') {
       okSince = null;
     }
     // Сигнал считаем уже на подготовке: стойку во время отсчёта запоминаем, и первое повторение после «Начали» не теряется.
-    if (gate === 'visible' && frame && status === 'OK') {
-      const v = signal(frame, side);
-      if (!Number.isNaN(v)) {
-        raw = v;
-        const s = smooth(v, tMs);
-        if (positionOk(frame, side, 'stance')) feedStand(s, tMs);
+    if (!isHold && gate === 'visible' && frame && status === 'OK') {
+      const nat = spec.value(ctx(frame));
+      if (!Number.isNaN(nat)) {
+        raw = nat;
+        const s = smooth(S(nat), tMs);
+        if (positionOk(frame, 'stance')) feedStand(s, tMs);
         else stand = [];
       }
     } else if (gate === 'lost') {
@@ -263,22 +221,22 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     }
   }
 
-  // ---------- автомат и правила ----------
+  // ---------- автомат повторений ----------
   function calibrate(r: number) {
     ref = r;
-    topThr = Math.min(ex.top, r - topMargin);
-    startThr = Math.min(ex.start, r - startMargin);
+    topThr = Math.min(sTop, r - topMargin);
+    startThr = Math.min(sStart, r - startMargin);
   }
 
   function feedStand(v: number, tMs: number) {
     stand.push({ t: tMs, v });
     // держим самое короткое окно, которое ещё покрывает topHoldMs (работает и при 5 кадрах/с)
-    while (stand.length > 2 && tMs - stand[1].t >= ex.topHoldMs) stand.shift();
+    while (stand.length > 2 && tMs - stand[1].t >= topHoldMs) stand.shift();
   }
 
-  /** Стойка: за topHoldMs угол почти не менялся и человек достаточно выпрямлен. */
+  /** Стойка: за topHoldMs сигнал почти не менялся и человек в исходном положении. */
   function standReached(tMs: number): boolean {
-    if (stand.length < 2 || tMs - stand[0].t < ex.topHoldMs) return false;
+    if (stand.length < 2 || tMs - stand[0].t < topHoldMs) return false;
     let lo = Infinity, hi = -Infinity;
     for (const p of stand) {
       lo = Math.min(lo, p.v);
@@ -287,216 +245,52 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     if (hi - lo > 8) return false;
     const sorted = stand.map((p) => p.v).sort((a, b) => a - b);
     const r = sorted[Math.floor(sorted.length / 2)];
-    // выпрямлен: от стойки до порога «засчитано» есть запас для начала и конца повторения
-    if (Math.min(ex.start, r - startMargin) <= ex.attempt + 5) return false;
+    // от стойки до порога «засчитано» есть запас для начала и конца повторения
+    if (Math.min(sStart, r - startMargin) <= sAttempt + 5) return false;
     calibrate(r);
     return true;
   }
 
   function resetRep() {
-    minAngle = Infinity;
+    minS = Infinity;
     minEma = Infinity;
     riseMax = -Infinity;
-    bottom = null;
-    lineBadSince = null;
-    lineBadMax = 0;
-    lineOffset = NaN;
-    lineWorst = Infinity;
+    track = newTrack();
   }
 
-  function trackInRep(frame: PoseFrame, s: Side, tMs: number) {
-    const m = median3(rawBuf); // медиана сырых значений: EMA завышает минимум
-    if (m < minAngle) {
-      minAngle = m;
-      const sh = jointIndex(s, 'shoulder');
-      const hipI = jointIndex(s, 'hip');
-      bottom = {
-        thigh: exercise === 'squat' ? thighAngle(px(frame, hipI), px(frame, jointIndex(s, 'knee'))) : NaN,
-        torsoTilt: visibilityOf(frame, sh) >= visMin ? tiltFromVertical(px(frame, sh), px(frame, hipI)) : NaN,
-        bodyTilt: exercise === 'pushup' && visibilityOf(frame, hipI) >= visMin * 0.5 ? bodyTilt(frame, s) : NaN,
-      };
+  function trackInRep(frame: PoseFrame, tMs: number) {
+    const m = median3(rawBuf); // медиана сырых значений: сглаживание завышает крайнюю точку
+    const c = ctx(frame);
+    if (m < minS) {
+      minS = m;
+      if (spec.snapshot) track.snap = spec.snapshot(c);
     }
-    if (exercise === 'pushup') {
-      const idx = [jointIndex(s, 'shoulder'), jointIndex(s, 'hip'), jointIndex(s, 'knee')];
-      if (!allVisible(frame, idx, visMin)) {
-        lineBadSince = null;
-        return;
-      }
-      const [sh, hp, kn] = idx.map((i) => px(frame, i));
-      const line = angleAt(sh, hp, kn);
-      if (line < config.pushup.minBodyLine) {
-        if (lineBadSince === null) lineBadSince = tMs;
-        lineBadMax = Math.max(lineBadMax, tMs - lineBadSince);
-        if (line < lineWorst) {
-          lineWorst = line;
-          lineOffset = hipOffsetFromLine(sh, hp, kn, 0.05 * frame.width);
-        }
-      } else {
-        lineBadSince = null;
-      }
-    }
-  }
-
-  function evaluate(): ErrorCode[] {
-    const errs: ErrorCode[] = [];
-    if (exercise === 'squat') {
-      const c = config.squat;
-      if (bottom && bottom.thigh > c.maxThighAngle) errs.push('SQUAT_DEPTH');
-      if (bottom && bottom.torsoTilt > c.maxLean) errs.push('SQUAT_LEAN');
-    } else {
-      const c = config.pushup;
-      if (lineBadMax >= c.bodyLineHoldMs && !Number.isNaN(lineOffset)) errs.push(lineOffset > 0 ? 'PUSHUP_HIP_SAG' : 'PUSHUP_HIP_PIKE');
-      if (minAngle > c.clean) errs.push('PUSHUP_DEPTH');
-    }
-    return errs.sort((a, b) => priority(a) - priority(b));
-  }
-
-  function checkFinish(tMs: number, out: AnalyzerEvent[]) {
-    if (phase !== 'counting') return;
-    // человек ушёл или встал из упора после повторений — подход окончен
-    if (reps.length > 0 && (status === 'NOT_VISIBLE' || status === 'WRONG_POSITION')) {
-      if (awaySince === null) awaySince = tMs;
-    } else {
-      awaySince = null;
-    }
-    let reason: FinishReason | null = null;
-    if (reps.length >= config.set.maxReps) reason = 'maxReps';
-    else if (tMs - countStart >= config.set.maxDurationMs) reason = 'maxDuration';
-    else if (awaySince !== null && tMs - awaySince >= config.set.awayStopMs) reason = 'away';
-    else if (tMs - lastRepAt >= config.set.idleStopMs) reason = 'idle';
-    if (reason) {
-      phase = 'finished';
-      finishedReason = reason;
-      out.push({ type: 'finish', reason });
-    }
-  }
-
-  function enterTop() {
-    state = 'TOP';
-    sideLocked = true;
-    topRun = 0;
-    waitingOkSince = null;
-  }
-
-  function toWaiting() {
-    state = 'WAITING';
-    sideLocked = false;
-    stand = [];
-    topRun = 0;
-    resetRep();
-  }
-
-  function pushCounting(frame: PoseFrame | null, tMs: number, out: AnalyzerEvent[]) {
-    if (!sideLocked) {
-      updateWindow(frame, tMs);
-      side = bestSide(); // пока не встал в исходное положение, сторону можно сменить (лёг в упор другим боком)
-    }
-    const s = side;
-    const visible = !!frame && allVisible(frame, countJoints(exercise, s), visMin);
-    const gate = visibilityGate(visible, tMs);
-    if (gate !== 'visible' || !frame) {
-      if (gate === 'lost' && state !== 'PAUSED') {
-        toWaiting();
-        state = 'PAUSED';
-        resetSignal();
-        setStatus('NOT_VISIBLE', out);
-      }
-      return;
-    }
-    if (state === 'PAUSED') state = 'WAITING';
-    const value = signal(frame, s);
-    if (Number.isNaN(value)) return;
-    raw = value;
-    const v = smooth(value, tMs);
-    if (state === 'WAITING') {
-      if (!positionOk(frame, s, 'stance')) {
-        setStatus('WRONG_POSITION', out);
-        stand = [];
-        topRun = 0;
-        waitingOkSince = null;
-        return;
-      }
-      setStatus('OK', out);
-      feedStand(v, tMs);
-      topRun = v >= ex.top ? topRun + 1 : 0;
-      // выше порога «верх» два кадра подряд, а при редких кадрах (5–6 в секунду) хватит одного
-      const needRun = lastDt >= 150 ? 1 : 2;
-      if (standReached(tMs)) enterTop();
-      else if (topRun >= needRun) {
-        // выпрямился без паузы — пороги по умолчанию
-        ref = null;
-        topThr = ex.top;
-        startThr = ex.start;
-        enterTop();
-      } else {
-        waitingOkSince ??= tMs;
-        if (tMs - waitingOkSince >= config.set.waitHintMs && tMs - lastHintAt >= config.set.waitHintMs) {
-          lastHintAt = tMs;
-          out.push({ type: 'hint', code: 'STAND_STILL' });
-        }
-      }
-      return;
-    }
-
-    // Во время подхода тоже следим за положением: встал из упора или развернулся — это не повторение.
-    if (!positionOk(frame, s, 'motion')) {
-      wrongSince ??= tMs;
-      if (tMs - wrongSince >= 500) {
-        wrongSince = null;
-        toWaiting();
-        setStatus('WRONG_POSITION', out);
-        return;
-      }
-    } else {
-      wrongSince = null;
-      setStatus('OK', out);
-    }
-
-    if (state === 'TOP') {
-      if (v < startThr) beginRep(frame, s, v, tMs);
-      return;
-    }
-    // IN_REP
-    trackInRep(frame, s, tMs);
-    if (v < minEma) {
-      minEma = v;
-      riseMax = -Infinity;
-    } else if (v > riseMax) {
-      riseMax = v;
-      riseMaxT = tMs;
-    }
-    // «Мягкий верх»: человек не выпрямился до порога, но явно поднялся и снова пошёл вниз.
-    const softTop = softRise() && v <= riseMax - 10;
-    if (v >= topThr || softTop) {
-      closeRep(softTop ? riseMaxT : tMs, out);
-      if (softTop) beginRep(frame, s, v, tMs);
-      else state = 'TOP';
-    }
+    spec.track?.(c, track, tMs);
   }
 
   function softRise(): boolean {
     return Number.isFinite(riseMax) && riseMax - minEma >= 0.75 * (topThr - minEma);
   }
 
-  function beginRep(frame: PoseFrame, s: Side, v: number, tMs: number) {
+  function beginRep(frame: PoseFrame, v: number, tMs: number) {
     state = 'IN_REP';
     repStart = tMs;
     resetRep();
     minEma = v;
-    trackInRep(frame, s, tMs);
+    trackInRep(frame, tMs);
   }
 
   function closeRep(tMs: number, out: AnalyzerEvent[]) {
     const duration = tMs - repStart;
-    // отжимание засчитываем, только если в нижней точке человек был в упоре, а не стоял
-    const inPlank = exercise !== 'pushup' || !bottom || Number.isNaN(bottom.bodyTilt) || bottom.bodyTilt <= config.position.pushupMaxBodyTilt;
-    if (minAngle <= ex.attempt && duration >= ex.minRepMs && inPlank) {
-      const errors = evaluate();
+    const accepted = spec.accept ? spec.accept(track, config) : true;
+    if (minS <= sAttempt && duration >= minRepMs && accepted) {
+      const extreme = S(minS);
+      const errors = (spec.evaluate?.(track, extreme, config) ?? []).sort((a, b) => priority(a) - priority(b));
       const rep: Rep = {
         index: reps.length + 1,
         tStartMs: Math.round(repStart - countStart),
         tEndMs: Math.round(tMs - countStart),
-        minAngle: Math.round(minAngle),
+        minAngle: Math.round(extreme),
         errors,
       };
       reps.push(rep);
@@ -510,14 +304,204 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     resetRep();
   }
 
+  function enterTop() {
+    state = 'TOP';
+    sideLocked = true;
+    topRun = 0;
+    waitingOkSince = null;
+  }
+
+  function toWaiting(out: AnalyzerEvent[]) {
+    // незакрытое повторение, после которого человек ушёл из кадра или встал, засчитываем, если обратный путь пройден на 3/4
+    if (state === 'IN_REP' && softRise()) closeRep(riseMaxT, out);
+    state = 'WAITING';
+    sideLocked = spec.view === 'front';
+    stand = [];
+    topRun = 0;
+    resetRep();
+  }
+
+  function pushReps(frame: PoseFrame, tMs: number, out: AnalyzerEvent[]) {
+    const nat = spec.value(ctx(frame));
+    if (Number.isNaN(nat)) return;
+    raw = nat;
+    const v = smooth(S(nat), tMs);
+
+    if (state === 'WAITING') {
+      if (!positionOk(frame, 'stance')) {
+        setStatus('WRONG_POSITION', out);
+        stand = [];
+        topRun = 0;
+        waitingOkSince = null;
+        return;
+      }
+      setStatus('OK', out);
+      feedStand(v, tMs);
+      topRun = v >= sTop ? topRun + 1 : 0;
+      // выше порога «верх» два кадра подряд, а при редких кадрах (5–6 в секунду) хватит одного
+      const needRun = lastDt >= 150 ? 1 : 2;
+      if (standReached(tMs)) enterTop();
+      else if (topRun >= needRun) {
+        ref = null; // вошёл без замирания — пороги по умолчанию
+        topThr = sTop;
+        startThr = sStart;
+        enterTop();
+      } else {
+        waitingOkSince ??= tMs;
+        if (tMs - waitingOkSince >= config.set.waitHintMs && tMs - lastHintAt >= config.set.waitHintMs) {
+          lastHintAt = tMs;
+          out.push({ type: 'hint', code: 'STAND_STILL' });
+        }
+      }
+      return;
+    }
+
+    // Во время подхода тоже следим за положением: встал из упора или развернулся — это не повторение.
+    if (!positionOk(frame, 'motion')) {
+      wrongSince ??= tMs;
+      if (tMs - wrongSince >= 500) {
+        wrongSince = null;
+        toWaiting(out);
+        setStatus('WRONG_POSITION', out);
+        return;
+      }
+    } else {
+      wrongSince = null;
+      setStatus('OK', out);
+    }
+
+    if (state === 'TOP') {
+      if (v < startThr) beginRep(frame, v, tMs);
+      return;
+    }
+    // IN_REP
+    trackInRep(frame, tMs);
+    if (v < minEma) {
+      minEma = v;
+      riseMax = -Infinity;
+    } else if (v > riseMax) {
+      riseMax = v;
+      riseMaxT = tMs;
+    }
+    // «Мягкий верх»: человек не вернулся до порога, но явно прошёл обратно и снова пошёл в повторение.
+    const softTop = softRise() && v <= riseMax - 10;
+    if (v >= topThr || softTop) {
+      closeRep(softTop ? riseMaxT : tMs, out);
+      if (softTop) beginRep(frame, v, tMs);
+      else state = 'TOP';
+    }
+  }
+
+  // ---------- удержание ----------
+  function pushHold(frame: PoseFrame, tMs: number, dt: number, out: AnalyzerEvent[]) {
+    const c = ctx(frame);
+    const nat = spec.value(c);
+    raw = Number.isNaN(nat) ? raw : nat;
+    ema = raw;
+    const posOk = positionOk(frame, 'stance');
+    setStatus(posOk ? 'OK' : 'WRONG_POSITION', out);
+    const inPose = posOk && !Number.isNaN(nat) && !!spec.hold?.inPose(c, nat);
+    if (inPose) {
+      outOfPoseSince = null;
+      if (!holding) {
+        holding = true;
+        state = 'TOP';
+        sideLocked = true;
+        out.push({ type: 'hold', holding: true });
+      }
+      const step = Math.min(dt, 250); // после разрыва не добавляем лишнего
+      holdMs += step;
+      const err = spec.hold?.formError(c, nat) ?? null;
+      if (err) {
+        badSince ??= tMs;
+        if (tMs - badSince >= (config.exercises[exercise] as { badHoldMs: number }).badHoldMs) {
+          if (badCode !== err) {
+            badCode = err;
+            holdErrors[err] = (holdErrors[err] ?? 0) + 1;
+            if (tMs - lastTipAt >= config.feedback.minTipIntervalMs) {
+              lastTipAt = tMs;
+              out.push({ type: 'tip', code: err });
+            }
+          }
+        } else {
+          cleanHoldMs += step;
+        }
+      } else {
+        badSince = null;
+        badCode = null;
+        cleanHoldMs += step;
+      }
+      lastRepAt = tMs; // для таймера простоя: удержание — это активность
+    } else if (holding) {
+      outOfPoseSince ??= tMs;
+      if (tMs - outOfPoseSince >= 500) {
+        holding = false;
+        state = 'WAITING';
+        badSince = null;
+        badCode = null;
+        out.push({ type: 'hold', holding: false });
+      }
+    }
+  }
+
+  // ---------- подход ----------
+  function checkFinish(tMs: number, out: AnalyzerEvent[]) {
+    if (phase !== 'counting') return;
+    const did = isHold ? holdMs > 0 : reps.length > 0;
+    // человек ушёл, встал или вышел из позы после того, как что-то сделал — подход окончен
+    const away = isHold ? did && !holding : did && (status === 'NOT_VISIBLE' || status === 'WRONG_POSITION');
+    if (away) awaySince ??= tMs;
+    else awaySince = null;
+    let reason: FinishReason | null = null;
+    if (reps.length >= config.set.maxReps) reason = 'maxReps';
+    else if (tMs - countStart >= config.set.maxDurationMs) reason = 'maxDuration';
+    else if (awaySince !== null && tMs - awaySince >= config.set.awayStopMs) reason = 'away';
+    else if (tMs - lastRepAt >= config.set.idleStopMs) reason = 'idle';
+    if (reason) {
+      if (!isHold && state === 'IN_REP' && softRise()) closeRep(riseMaxT, out);
+      phase = 'finished';
+      finishedReason = reason;
+      out.push({ type: 'finish', reason });
+    }
+  }
+
+  function pushCounting(frame: PoseFrame | null, tMs: number, out: AnalyzerEvent[]) {
+    const dt = Number.isFinite(lastT) ? tMs - lastT : 0;
+    if (!sideLocked) {
+      updateWindow(frame, tMs);
+      side = bestSide(); // пока не в исходном положении, сторону можно сменить (лёг в упор другим боком)
+    }
+    const gate = visibilityGate(visibleFor(frame), tMs);
+    if (gate !== 'visible' || !frame) {
+      if (gate === 'lost' && state !== 'PAUSED') {
+        if (isHold) {
+          if (holding) out.push({ type: 'hold', holding: false });
+          holding = false;
+          badSince = null;
+          badCode = null;
+        } else toWaiting(out);
+        state = 'PAUSED';
+        sideLocked = spec.view === 'front';
+        resetSignal();
+        setStatus('NOT_VISIBLE', out);
+      }
+      return;
+    }
+    if (state === 'PAUSED') state = 'WAITING';
+    if (isHold) pushHold(frame, tMs, dt, out);
+    else pushReps(frame, tMs, out);
+  }
+
   return {
     push(frame, tMs) {
       const out: AnalyzerEvent[] = [];
       if (phase === 'finished' || !(tMs > lastT)) return out;
-      lastT = tMs;
-      if (phase === 'prepare') pushPrepare(frame, tMs, out);
-      else {
+      if (phase === 'prepare') {
+        pushPrepare(frame, tMs, out);
+        lastT = tMs;
+      } else {
         pushCounting(frame, tMs, out);
+        lastT = tMs;
         checkFinish(tMs, out);
       }
       return out;
@@ -528,13 +512,13 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
       state = 'WAITING';
       countStart = tMs;
       lastRepAt = tMs;
-      sideLocked = false;
+      sideLocked = spec.view === 'front';
       waitingOkSince = null;
       // сигнал и окно стойки с подготовки не сбрасываем
     },
     finish(tMs, reason = 'user') {
-      // последнее повторение без полного выпрямления: подъём прошёл три четверти пути
-      if (phase === 'counting' && state === 'IN_REP' && softRise()) {
+      // последнее повторение без полного возврата: обратный путь пройден на три четверти
+      if (phase === 'counting' && !isHold && state === 'IN_REP' && softRise()) {
         closeRep(riseMaxT, []);
         state = 'TOP';
       }
@@ -542,13 +526,16 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
         phase = 'finished';
         finishedReason = reason;
       }
-      const errorsCount: Partial<Record<ErrorCode, number>> = {};
+      const errorsCount: Partial<Record<ErrorCode, number>> = isHold ? { ...holdErrors } : {};
       for (const r of reps) for (const e of r.errors) errorsCount[e] = (errorsCount[e] ?? 0) + 1;
       return {
         exercise,
+        kind: spec.kind,
         side,
         totalReps: reps.length,
         cleanReps: reps.filter((r) => r.errors.length === 0).length,
+        holdMs: Math.round(holdMs),
+        cleanHoldMs: Math.round(cleanHoldMs),
         errorsCount,
         reps: reps.slice(),
         durationMs: Math.max(0, Math.round(tMs - countStart)),
@@ -556,7 +543,22 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
       };
     },
     debug() {
-      return { phase, state, status, side, sideLocked, angle: ema, rawAngle: raw, reps: reps.length, top: topThr, start: startThr, ref };
+      return {
+        phase,
+        state,
+        status,
+        side,
+        sideLocked,
+        angle: ema === null ? null : isHold ? ema : S(ema),
+        rawAngle: raw,
+        reps: reps.length,
+        top: S(topThr),
+        start: S(startThr),
+        ref: ref === null ? null : S(ref),
+        holdMs: Math.round(holdMs),
+        cleanHoldMs: Math.round(cleanHoldMs),
+        holding,
+      };
     },
   };
 }

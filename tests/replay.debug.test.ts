@@ -5,9 +5,10 @@ import { createAnalyzer } from '../src/analyzer/analyzer';
 import { angleAt, angleAt3, jointIndex, px, shoulderRatio, tiltFromHorizontal, tiltFromVertical } from '../src/analyzer/geometry';
 import { loadRecording } from './replay';
 import { loadTestConfig } from './synth';
+import type { Exercise } from '../src/types';
 
 const file = process.env.REPLAY;
-const ex = (process.env.EX ?? 'pushup') as 'squat' | 'pushup';
+const ex = (process.env.EX ?? 'pushup') as Exercise;
 
 describe.skipIf(!file)('replay', () => {
   it('печатает сигналы', () => {
@@ -15,7 +16,6 @@ describe.skipIf(!file)('replay', () => {
     const frames = loadRecording(new URL('../' + file, import.meta.url)).filter((_, i) => i % k === 0);
     const cfg = loadTestConfig((c) => {
       c.prepare.readyHoldMs = 200;
-      if (process.env.SIGNAL) c[ex].signal = process.env.SIGNAL as 'angle2d' | 'angle3d';
     });
     const an = createAnalyzer(ex, cfg);
     const lines: string[] = [];
@@ -28,7 +28,7 @@ describe.skipIf(!file)('replay', () => {
       }
       const d = an.debug();
       const s = d.side;
-      const [a, b, c] = ex === 'squat' ? (['hip', 'knee', 'ankle'] as const) : (['shoulder', 'elbow', 'wrist'] as const);
+      const [a, b, c] = ['squat', 'lunge', 'wallsit'].includes(ex) ? (['hip', 'knee', 'ankle'] as const) : (['shoulder', 'elbow', 'wrist'] as const);
       const ia = jointIndex(s, a), ib = jointIndex(s, b), ic = jointIndex(s, c);
       const a2 = angleAt(px(f, ia), px(f, ib), px(f, ic));
       const a3 = f.world ? angleAt3(f.world[ia], f.world[ib], f.world[ic]) : NaN;
@@ -38,13 +38,13 @@ describe.skipIf(!file)('replay', () => {
       const sh = px(f, jointIndex(s, 'shoulder'));
       const hp = px(f, jointIndex(s, 'hip'));
       const kn = px(f, jointIndex(s, 'knee'));
-      const tilt = ex === 'pushup' ? tiltFromHorizontal(sh, kn) : tiltFromVertical(sh, hp);
+      const tilt = ['pushup', 'plank'].includes(ex) ? tiltFromHorizontal(sh, kn) : tiltFromVertical(sh, hp);
       lines.push(
         `${String(f.tMs).padStart(6)} ${d.phase.padEnd(8)} ${d.state.padEnd(7)} ${String(d.status).padEnd(14)} side=${s[0]} 2d=${a2.toFixed(0).padStart(4)} 3d=${a3.toFixed(0).padStart(4)} ema=${d.angle?.toFixed(0) ?? '—'} thr=${d.top.toFixed(0)}/${d.start.toFixed(0)} lock=${d.sideLocked ? 1 : 0} vis=${vis} other=${visO} ratio=${shoulderRatio(f).toFixed(2)} tilt=${tilt.toFixed(0)} ${ev.map((e) => e.type + (e.type === 'rep' ? '#' + e.rep.index + ':' + e.rep.errors.join(',') : e.type === 'status' ? ':' + e.status : '')).join(' ')}`,
       );
     }
     const sum = an.finish(frames.at(-1)?.tMs ?? 0);
     console.log(lines.join('\n'));
-    console.log('ИТОГ', sum.totalReps, 'чистых', sum.cleanReps, JSON.stringify(sum.errorsCount));
+    console.log('ИТОГ', sum.totalReps, 'чистых', sum.cleanReps, 'удержание', sum.holdMs, sum.cleanHoldMs, JSON.stringify(sum.errorsCount));
   });
 });

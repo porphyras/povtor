@@ -1,5 +1,6 @@
 import type { App } from '../app';
-import { dailyStats, EXERCISE_NAME } from '../history';
+import { exerciseName } from '../catalog';
+import { dailyStats, setResult } from '../history';
 import { clearHistory, exportCsv, listSets } from '../storage';
 import { appError } from '../errors';
 import type { SetRecord } from '../types';
@@ -63,7 +64,7 @@ export function renderHistory(root: HTMLElement, app: App): () => void {
         'ul',
         { class: 'setlist' },
         ...sets.map((s) =>
-          h('li', null, h('span', { class: 'when' }, humanDate(s.startedAt)), h('span', { class: 'what' }, EXERCISE_NAME[s.exercise]), h('span', { class: 'count' }, h('b', null, String(s.totalReps)), `, чистых ${s.cleanReps}`)),
+          h('li', null, h('span', { class: 'when' }, humanDate(s.startedAt)), h('span', { class: 'what' }, exerciseName(s.exercise)), h('span', { class: 'count' }, h('b', null, setResult(s).main), setResult(s).rest)),
         ),
       ),
       h(

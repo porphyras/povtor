@@ -80,6 +80,25 @@ try {
   const msg = await p3.textContent('.overlay.error');
   check('отказ в камере — понятное сообщение', /Нет доступа к камере/.test(msg ?? ''));
   await denied.close();
+  // 7. системная «назад» во время счёта сохраняет подход; 8. отключение камеры во время счёта — тоже
+  for (const [name, act] of [
+    ['системная «назад» во время счёта сохраняет подход', (pg) => pg.evaluate(() => history.back())],
+    ['отключение камеры во время счёта сохраняет подход', (pg) => pg.evaluate(() => document.querySelector('video').srcObject.getVideoTracks()[0].dispatchEvent(new Event('ended')))],
+  ]) {
+    const c2 = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['camera'] });
+    const pg = await c2.newPage();
+    await pg.goto(BASE + '?delegate=CPU#/');
+    await pg.click('#start-pushup');
+    await pg.waitForFunction(() => Number(document.querySelector('#counter')?.textContent) >= 1, null, { timeout: 150000 });
+    await act(pg);
+    await pg.waitForTimeout(1500);
+    await pg.goto(BASE + '?delegate=CPU#/history');
+    await pg.waitForSelector('.history-body .empty, .setlist', { timeout: 20000 });
+    const rows = await pg.$$eval('.setlist li', (els) => els.length);
+    check(name, rows >= 1, `записей в истории ${rows}`);
+    await c2.close();
+  }
+
   // 6. зависшая загрузка модели: первый запрос не отвечает, приложение повторяет попытку
   const stall = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['camera'] });
   const p4 = await stall.newPage();

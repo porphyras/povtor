@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import type { PoseFrame } from '../src/types';
 
 /** Формат записи точек из e2e: компактные массивы с 4 знаками. */
@@ -11,7 +12,9 @@ export interface RecordedFrame {
 }
 
 export function loadRecording(path: string | URL): PoseFrame[] {
-  const raw = JSON.parse(readFileSync(path, 'utf8')) as RecordedFrame[];
+  const buf = readFileSync(path);
+  const text = String(path).endsWith('.gz') ? gunzipSync(buf).toString('utf8') : buf.toString('utf8');
+  const raw = JSON.parse(text) as RecordedFrame[];
   return raw.map((f) => ({
     tMs: f.t,
     width: f.w,

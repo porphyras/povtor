@@ -125,3 +125,69 @@ export function pushupFrameRight(tMs: number, elbowAngle: number): PoseFrame {
   for (const [l, r] of [[11, 12], [13, 14], [15, 16], [23, 24], [25, 26], [27, 28]]) swap(l, r);
   return f;
 }
+
+type PartFrame = Partial<Record<'Shoulder' | 'Elbow' | 'Wrist' | 'Hip' | 'Knee' | 'Ankle', P>>;
+
+/** Кадр из точек для левой и правой стороны. */
+function frameOf(tMs: number, left: PartFrame, right: PartFrame, visL = 0.95, visR = 0.95): PoseFrame {
+  const lms = emptyLandmarks();
+  for (const [s, pts, v] of [['left', left, visL], ['right', right, visR]] as const) {
+    for (const [name, p] of Object.entries(pts)) put(lms, LM[(s + name) as keyof typeof LM], p as P, v);
+  }
+  return { tMs, width: W, height: H, landmarks: lms };
+}
+const shift = (pts: PartFrame, dx: number): PartFrame => Object.fromEntries(Object.entries(pts).map(([k, p]) => [k, { x: (p as P).x + dx, y: (p as P).y }]));
+
+/** Сбоку, лёжа на спине, колени согнуты; lift — подъём таза в пикселях (48 — прямая линия плечо–таз–колено). */
+export function bridgeFrame(tMs: number, lift: number): PoseFrame {
+  const near: PartFrame = { Shoulder: { x: 150, y: 400 }, Hip: { x: 300, y: 400 - lift }, Knee: { x: 400, y: 320 }, Ankle: { x: 420, y: 400 }, Elbow: { x: 190, y: 420 }, Wrist: { x: 240, y: 425 } };
+  return frameOf(tMs, near, shift(near, 4), 0.95, 0.4);
+}
+
+/** Сбоку, лёжа на спине; elev — подъём корпуса от пола в градусах. */
+export function crunchFrame(tMs: number, elev: number): PoseFrame {
+  const e = deg(elev);
+  const hip = { x: 300, y: 400 };
+  const near: PartFrame = { Hip: hip, Shoulder: { x: hip.x - 150 * Math.cos(e), y: hip.y - 150 * Math.sin(e) }, Knee: { x: 400, y: 320 }, Ankle: { x: 440, y: 400 } };
+  return frameOf(tMs, near, shift(near, 4), 0.95, 0.4);
+}
+
+/** Сбоку, стоя; elbowAngle — угол в локте; lean — наклон корпуса; drift — локоть уходит вперёд (градусы). */
+export function curlFrame(tMs: number, elbowAngle: number, o: { lean?: number; drift?: number } = {}): PoseFrame {
+  const lean = deg(o.lean ?? 0);
+  const hip = { x: 300, y: 300 };
+  const shoulder = { x: hip.x + 150 * Math.sin(lean), y: hip.y - 150 * Math.cos(lean) };
+  const d = deg(o.drift ?? 0);
+  const elbow = { x: shoulder.x + 90 * Math.sin(d), y: shoulder.y + 90 * Math.cos(d) };
+  // угол в локте между локоть→плечо и локоть→запястье
+  const up = Math.atan2(shoulder.y - elbow.y, shoulder.x - elbow.x);
+  const a = up - deg(elbowAngle);
+  const wrist = { x: elbow.x + 80 * Math.cos(a), y: elbow.y + 80 * Math.sin(a) };
+  const near: PartFrame = { Shoulder: shoulder, Elbow: elbow, Wrist: wrist, Hip: hip, Knee: { x: 300, y: 390 }, Ankle: { x: 300, y: 470 } };
+  return frameOf(tMs, near, shift(near, 4), 0.95, 0.4);
+}
+
+/** Лицом к камере: обе руки, угол в локтях elbowAngle (жим над головой). */
+export function pressFrame(tMs: number, elbowAngle: number): PoseFrame {
+  const a = deg(elbowAngle);
+  const mk = (sign: number): PartFrame => {
+    const shoulder = { x: 320 + sign * 60, y: 200 };
+    const elbow = { x: shoulder.x + sign * 50, y: 205 };
+    // вектор локоть→плечо направлен к центру; запястье повёрнуто от него на угол a вверх
+    const wrist = { x: elbow.x - sign * 70 * Math.cos(a), y: elbow.y - 70 * Math.sin(a) };
+    return { Shoulder: shoulder, Elbow: elbow, Wrist: wrist, Hip: { x: 320 + sign * 40, y: 350 }, Knee: { x: 320 + sign * 40, y: 420 }, Ankle: { x: 320 + sign * 40, y: 470 } };
+  };
+  return frameOf(tMs, mk(1), mk(-1));
+}
+
+/** Лицом к камере: руки разведены в стороны на угол abd от корпуса. */
+export function raiseFrame(tMs: number, abd: number): PoseFrame {
+  const a = deg(abd);
+  const mk = (sign: number): PartFrame => {
+    const shoulder = { x: 320 + sign * 60, y: 200 };
+    const hip = { x: 320 + sign * 60, y: 350 };
+    const elbow = { x: shoulder.x + sign * 100 * Math.sin(a), y: shoulder.y + 100 * Math.cos(a) };
+    return { Shoulder: shoulder, Elbow: elbow, Wrist: { x: elbow.x + sign * 60 * Math.sin(a), y: elbow.y + 60 * Math.cos(a) }, Hip: hip, Knee: { x: hip.x, y: 420 }, Ankle: { x: hip.x, y: 470 } };
+  };
+  return frameOf(tMs, mk(1), mk(-1));
+}

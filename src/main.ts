@@ -1,5 +1,6 @@
 import './styles.css';
 import { createApp, type App } from './app';
+import { isExercise } from './catalog';
 import { loadConfig } from './config';
 import { loadSettings, saveSettings } from './storage';
 import { h } from './ui/dom';
@@ -15,8 +16,8 @@ function route(app: App) {
   cleanup?.();
   cleanup = null;
   const path = location.hash.replace(/^#/, '') || '/';
-  const m = path.match(/^\/session\/(squat|pushup)$/);
-  if (m) cleanup = renderSession(root, app, m[1] as 'squat' | 'pushup');
+  const m = path.match(/^\/session\/([a-z]+)$/);
+  if (m && isExercise(m[1])) cleanup = renderSession(root, app, m[1]);
   else if (path === '/summary') cleanup = renderSummary(root, app);
   else if (path === '/history') cleanup = renderHistory(root, app);
   else cleanup = renderHome(root, app);
