@@ -29,6 +29,11 @@ function statusVoice(ex: Exercise, s: Status | null, phase: Phase): string | nul
   return null;
 }
 
+/** Что сказать, если во время счёта долго не удаётся посчитать угол упражнения (по умолчанию — подсказка «как встать»). */
+const NO_VALUE: Partial<Record<Exercise, string>> = {
+  lunge: 'Встань строго боком, чтобы были видны обе ноги',
+};
+
 const MINUTES = ['', 'одна минута', 'две минуты', 'три минуты', 'четыре минуты', 'пять минут'];
 /** Время удержания голосом: «30 секунд», «одна минута», «одна минута 20 секунд». */
 export function holdPhrase(sec: number): string {
@@ -134,7 +139,12 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   let lastDraftAt = 0;
   // постоянная строка внизу во время счёта: почему не считается (неверное положение, нет позы в удержании)
   let statusNote: string | null = null;
+  // строку о неверном положении показываем и убираем с задержкой: у порога ракурса статус может мигать
+  let pendingStatusNote: string | null = null;
+  let pendingSince = 0;
   let holdNote: string | null = null;
+  let valueNote: string | null = null;
+  let countStartTA = 0;
   let notHoldingSince = -1;
   let tipTransient = false;
   hook.events = [];
@@ -336,6 +346,20 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     handle(events, tA);
     const dbg = analyzer.debug();
     drawSkeleton(ctx, frame, info.view === 'front' ? null : dbg.side, config.visibility.min, !tip.classList.contains('hidden') && tip.classList.contains('warn'));
+    if (phase === 'counting') {
+      if (pendingStatusNote !== statusNote && tA - pendingSince >= 600) {
+        statusNote = pendingStatusNote;
+        refreshTip();
+      }
+      // человек в кадре, но угол упражнения не считается уже 3 секунды (в выпадах не видно дальнюю ногу)
+      const stale = !isHold && status === 'OK' && tA - (dbg.lastValueT ?? countStartTA) > 3000;
+      const vn = stale ? NO_VALUE[exercise] ?? info.setup : null;
+      if (vn !== valueNote) {
+        valueNote = vn;
+        refreshTip();
+        if (vn) app.voice.say(vn);
+      }
+    }
     if (isHold && phase === 'counting') {
       setCounter(formatDuration(dbg.holdMs));
       // позы нет дольше 3 секунд (например, в «стульчике» сел слишком высоко) — подсказываем постоянно, пока не примет позу
@@ -396,7 +420,10 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     reps = [];
     lastDraftAt = performance.now();
     statusNote = null;
+    pendingStatusNote = null;
     holdNote = null;
+    valueNote = null;
+    countStartTA = tA;
     notHoldingSince = -1;
     setPhase('counting');
     setCounter(isHold ? '0:00' : '0');
@@ -435,8 +462,8 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
         }
         if (phase === 'counting') {
           show(paused, status === 'NOT_VISIBLE');
-          statusNote = status === 'WRONG_POSITION' || status === 'NO_ROOM' ? statusText(exercise, status, phase) : null;
-          refreshTip();
+          pendingStatusNote = status === 'WRONG_POSITION' || status === 'NO_ROOM' ? statusText(exercise, status, phase) : null;
+          pendingSince = tA;
         }
         if (phase === 'countdown' && status !== 'OK') {
           setPhase('prepare');
@@ -505,7 +532,7 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   /** Постоянная строка: пока положение неверное или нет позы, она видна, чтобы было понятно, почему счёт стоит. */
   function refreshTip() {
     if (tipTransient) return;
-    const note = phase === 'counting' ? statusNote ?? holdNote : null;
+    const note = phase === 'counting' ? statusNote ?? holdNote ?? valueNote : null;
     if (note) {
       tip.textContent = note;
       tip.classList.remove('warn');

@@ -56,15 +56,59 @@ const angle3 = (c: Ctx, a: Joint, b: Joint, d: Joint, side: Side = c.side) => an
 const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 /** Боком к камере: ширина плеч по горизонтали меньше половины длины корпуса. */
-function sideView(c: Ctx): boolean {
+// Необязательные параметры из предложенных исправлений (нет в config.json — поведение прежнее).
+const opt = (c: Ctx) => c.config.position as unknown as { maxFrontRatio?: number };
+/** Мягкий порог ракурса во время повторения, если он задан для упражнения (motionSideRatio / motionFrontRatio). */
+const motionOpt = (c: Ctx, ex: Exercise | undefined, key: 'motionSideRatio' | 'motionFrontRatio') =>
+  ex ? ((c.config.exercises[ex] as Record<string, unknown>)[key] as number | undefined) : undefined;
+
+/** Боком к камере. Во время движения порог мягче: в подъёме корпуса плечи «раскрываются» в кадре. */
+function sideView(c: Ctx, mode: PosMode = 'stance', ex?: Exercise): boolean {
   const r = shoulderRatio(c.f);
-  return Number.isNaN(r) || r <= c.config.position.maxSideRatio;
+  const m = mode === 'motion' ? motionOpt(c, ex, 'motionSideRatio') : undefined;
+  const max = m ?? c.config.position.maxSideRatio;
+  return Number.isNaN(r) || r <= max;
 }
 
 /** Лицом к камере: плечи широко разнесены по горизонтали. */
-function frontView(c: Ctx): boolean {
+function frontView(c: Ctx, mode: PosMode = 'stance', ex?: Exercise): boolean {
   const r = shoulderRatio(c.f);
-  return !Number.isNaN(r) && r >= c.config.position.minFrontRatio;
+  const m = mode === 'motion' ? motionOpt(c, ex, 'motionFrontRatio') : undefined;
+  const min = m ?? c.config.position.minFrontRatio;
+  // слишком «широкие» плечи при коротком корпусе — человек наклонился к камере (бёрпи, наклон), а не стоит лицом
+  return !Number.isNaN(r) && r >= min && r <= (opt(c).maxFrontRatio ?? Infinity);
+}
+
+/** Насколько линия плеч вертикальна в пространстве (worldLandmarks), градусы. В боковой планке ~70–90°, в обычной < 30°. */
+function shoulderStack(c: Ctx): number {
+  const w = c.f.world;
+  if (!w?.[11] || !w?.[12]) return NaN;
+  const dx = w[11].x - w[12].x, dy = w[11].y - w[12].y, dz = w[11].z - w[12].z;
+  return (Math.atan2(Math.abs(dy), Math.hypot(dx, dz)) * 180) / Math.PI;
+}
+
+/** На сколько плечо выше таза, в долях корпуса (> 0 — плечи выше, < 0 — таз выше плеч, как в мосте). */
+function shoulderRise(c: Ctx): number {
+  const sh = P(c, 'shoulder'), hp = P(c, 'hip');
+  const torso = dist(sh, hp);
+  return torso ? (hp.y - sh.y) / torso : NaN;
+}
+
+/** На сколько кисть ниже плеча, в долях корпуса: в упоре на прямых руках ~0,8–1. */
+function armSupport(c: Ctx): number {
+  const sh = P(c, 'shoulder');
+  const torso = dist(sh, P(c, 'hip'));
+  return torso ? (P(c, 'wrist').y - sh.y) / torso : NaN;
+}
+
+const optNum = (config: AppConfig, ex: Exercise, key: string) => (config.exercises[ex] as Record<string, unknown>)[key] as number | undefined;
+
+/** Разнос стоп по горизонтали в долях длины ноги: в выпаде ноги разведены вперёд-назад, в приседе стопы рядом. */
+function footSplit(c: Ctx): number {
+  const other: Side = c.side === 'left' ? 'right' : 'left';
+  const leg = dist(P(c, 'hip'), P(c, 'knee')) + dist(P(c, 'knee'), P(c, 'ankle'));
+  if (!leg) return NaN;
+  return Math.abs(P(c, 'ankle').x - P(c, 'ankle', other).x) / leg;
 }
 
 /** Наклон корпуса (плечо–таз) от вертикали на выбранной стороне. */
@@ -146,11 +190,17 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     countPoints: oneSide(['hip', 'knee', 'ankle']),
     sidePoints: oneSide(['shoulder', 'hip', 'knee', 'ankle']),
     value: (c) => angle3(c, 'hip', 'knee', 'ankle'),
-    position: (c, mode) => sideView(c) && (mode === 'motion' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
+    position: (c, mode) => sideView(c, mode, 'squat') && (mode === 'motion' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
     snapshot: (c) => ({
       thigh: thighAngle(P(c, 'hip'), P(c, 'knee')),
       torso: vis(c, 'shoulder') >= c.visMin ? torsoTilt(c) : NaN,
+      split: (['hip', 'knee', 'ankle'] as const).every((j) => vis(c, j, c.side === 'left' ? 'right' : 'left') >= 0.3) ? footSplit(c) : NaN,
     }),
+    // стопы рядом: если в нижней точке ноги разведены вперёд-назад — это выпад, а не присед
+    accept: (t, config) => {
+      const m = optNum(config, 'squat', 'maxSplit');
+      return m === undefined || !(t.snap.split > m);
+    },
     evaluate(t, _x, config) {
       const e = rc(config, 'squat');
       const out: ErrorCode[] = [];
@@ -176,8 +226,18 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
       if (!farVisible) return NaN;
       return Math.max(near, angle3(c, 'hip', 'knee', 'ankle', other));
     },
-    position: (c, mode) => sideView(c) && (mode === 'motion' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
-    snapshot: (c) => ({ torso: vis(c, 'shoulder') >= c.visMin ? torsoTilt(c) : NaN }),
+    position: (c, mode) => sideView(c, mode, 'lunge') && (mode === 'motion' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
+    snapshot: (c) => ({ torso: vis(c, 'shoulder') >= c.visMin ? torsoTilt(c) : NaN, split: footSplit(c) }),
+    // в нижней точке стопы должны быть разведены: присед на двух ногах и низкий старт — не выпад
+    // и корпус почти вертикален: с наклоном 70° это низкий старт или растяжка с рукой на полу, а не выпад
+    accept: (t, config) => {
+      const e = rc(config, 'lunge');
+      const m = e.minSplit as number | undefined;
+      const lean = e.maxRepLean as number | undefined;
+      if (m !== undefined && !Number.isNaN(t.snap.split ?? NaN) && t.snap.split < m) return false;
+      if (lean !== undefined && t.snap.torso > lean) return false;
+      return true;
+    },
     evaluate(t, extreme, config) {
       const e = rc(config, 'lunge');
       const out: ErrorCode[] = [];
@@ -195,9 +255,15 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     sidePoints: oneSide(['shoulder', 'hip', 'knee', 'ankle']),
     value: (c) => angle3(c, 'shoulder', 'hip', 'knee'),
     position(c, mode) {
-      if (!sideView(c)) return false;
+      if (!sideView(c, mode, 'bridge')) return false;
       if (mode === 'motion') return kneesUp(c) && !(torsoElevation(c) > 60);
       return !(torsoElevation(c) > c.config.position.maxLyingTilt); // лежит на спине
+    },
+    snapshot: (c) => ({ rise: shoulderRise(c) }),
+    // в верхней точке таз выше плеч: при подъёме корпуса (скручивание) выше плечи
+    accept: (t, config) => {
+      const m = optNum(config, 'bridge', 'maxShoulderRise');
+      return m === undefined || !(t.snap.rise > m);
     },
     evaluate: (_t, extreme, config) => (extreme < n(rc(config, 'bridge').minPeak) ? ['BRIDGE_HEIGHT'] : []),
   },
@@ -209,9 +275,21 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     countPoints: oneSide(['hip', 'knee', 'ankle']),
     sidePoints: oneSide(['shoulder', 'hip', 'knee', 'ankle']),
     value: (c) => angle3(c, 'hip', 'knee', 'ankle'),
-    position: (c, mode) => sideView(c) && (mode === 'prepare' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
+    position: (c, mode) => sideView(c, mode, 'wallsit') && (mode === 'prepare' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
     hold: {
-      inPose: (c, v) => v >= 50 && v <= n(hc(c.config, 'wallsit').maxKnee),
+      inPose: (c, v) => {
+        if (!(v >= 50 && v <= n(hc(c.config, 'wallsit').maxKnee))) return false;
+        const e = hc(c.config, 'wallsit') as Record<string, number | undefined>;
+        const other: Side = c.side === 'left' ? 'right' : 'left';
+        // стопы рядом (статичный выпад — не «стульчик»)
+        if (e.maxSplit !== undefined && (['hip', 'knee', 'ankle'] as const).every((j) => vis(c, j, other) >= 0.3) && footSplit(c) > e.maxSplit) return false;
+        // таз заметно выше стоп: сидя на полу с согнутыми коленями таз на уровне стоп
+        if (e.minHipHeight !== undefined) {
+          const leg = dist(P(c, 'hip'), P(c, 'knee')) + dist(P(c, 'knee'), P(c, 'ankle'));
+          if (leg && (P(c, 'ankle').y - P(c, 'hip').y) / leg < e.minHipHeight) return false;
+        }
+        return true;
+      },
       formError: (c, v, current) => (v > n(hc(c.config, 'wallsit').cleanMaxKnee) - (current ? 3 : 0) ? 'WALLSIT_HIGH' : null),
     },
   },
@@ -224,9 +302,13 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     sidePoints: oneSide(['shoulder', 'elbow', 'wrist', 'hip', 'knee']),
     value: (c) => angle3(c, 'shoulder', 'elbow', 'wrist'),
     // на подготовке можно стоять, в упоре тело почти горизонтально
-    position: (c, mode) => sideView(c) && (mode === 'prepare' || !(bodyTilt(c) > c.config.position.maxBodyTilt)),
+    position: (c, mode) => sideView(c, mode, 'pushup') && (mode === 'prepare' || !(bodyTilt(c) > c.config.position.maxBodyTilt)),
     snapshot: (c) => ({ bodyTilt: vis(c, 'hip') >= c.visMin * 0.5 ? bodyTilt(c) : NaN }),
-    track: (c, t, tMs) => trackBodyLine(c, t, tMs, n(rc(c.config, 'pushup').minBodyLine)),
+    track: (c, t, tMs) => {
+      trackBodyLine(c, t, tMs, n(rc(c.config, 'pushup').minBodyLine));
+      const a = armSupport(c);
+      if (!Number.isNaN(a)) t.acc.support = Math.max(t.acc.support ?? -Infinity, a);
+    },
     evaluate(t, extreme, config) {
       const e = rc(config, 'pushup');
       const out: ErrorCode[] = [];
@@ -235,7 +317,12 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
       return out;
     },
     // засчитываем, только если в нижней точке человек был в упоре, а не стоял
-    accept: (t, config) => Number.isNaN(t.snap.bodyTilt ?? NaN) || t.snap.bodyTilt <= config.position.maxBodyTilt,
+    // и хотя бы раз за повторение руки выпрямлялись под плечами (упор): сгибание рук лёжа на спине — не отжимание
+    accept: (t, config) => {
+      if (!(Number.isNaN(t.snap.bodyTilt ?? NaN) || t.snap.bodyTilt <= config.position.maxBodyTilt)) return false;
+      const m = optNum(config, 'pushup', 'minArmSupport');
+      return m === undefined || !(t.acc.support < m);
+    },
   },
 
   curl: {
@@ -245,12 +332,18 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     countPoints: oneSide(['shoulder', 'elbow', 'wrist']),
     sidePoints: oneSide(['shoulder', 'elbow', 'wrist', 'hip']),
     value: (c) => angle3(c, 'shoulder', 'elbow', 'wrist'),
-    position: (c, mode) => sideView(c) && (mode === 'motion' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
+    position: (c, mode) => sideView(c, mode, 'curl') && (mode === 'motion' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
     // локоть уходит вперёд: плечевая кость (плечо→локоть) отклоняется от вертикали
-    snapshot: (c) => ({ drift: tiltFromVertical(P(c, 'shoulder'), P(c, 'elbow')) }),
+    snapshot: (c) => ({ drift: tiltFromVertical(P(c, 'shoulder'), P(c, 'elbow')), torso: vis(c, 'hip') >= c.visMin ? torsoTilt(c) : NaN }),
+    // в верхней точке человек стоит прямо: сгибание рук в приседе или лёжа — не «бицепс»
+    accept: (t, config) => {
+      const m = optNum(config, 'curl', 'maxRepLean');
+      return m === undefined || !(t.snap.torso > m);
+    },
     track(c, t) {
       if (vis(c, 'hip') < c.visMin) return;
-      const tilt = torsoTilt(c);
+      // наклон со знаком (вперёд или назад): раскачка через вертикаль, от +8° до −8°, — это размах 16°, а не 8°
+      const tilt = torsoTilt(c) * (P(c, 'shoulder').x >= P(c, 'hip').x ? 1 : -1);
       if (t.acc.tilt0 === undefined) t.acc.tilt0 = tilt;
       t.acc.swing = Math.max(t.acc.swing ?? 0, Math.abs(tilt - t.acc.tilt0));
     },
@@ -271,7 +364,7 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     sidePoints: () => [],
     // обе руки должны выпрямиться — берём меньший из двух углов в локтях
     value: (c) => Math.min(angle3(c, 'shoulder', 'elbow', 'wrist', 'left'), angle3(c, 'shoulder', 'elbow', 'wrist', 'right')),
-    position: (c) => frontView(c) && !(torsoTiltFront(c) > c.config.position.maxTorsoTilt),
+    position: (c, mode) => frontView(c, mode, 'press') && !(torsoTiltFront(c) > c.config.position.maxTorsoTilt),
     // руки над головой должны поместиться в кадр: плечо выше верхнего края хотя бы на длину руки
     room(c) {
       return (['left', 'right'] as const).every((sd) => {
@@ -291,7 +384,7 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     sidePoints: () => [],
     // угол в плече между корпусом (плечо→таз) и рукой (плечо→локоть), меньший из двух рук
     value: (c) => Math.min(angle3(c, 'hip', 'shoulder', 'elbow', 'left'), angle3(c, 'hip', 'shoulder', 'elbow', 'right')),
-    position: (c) => frontView(c) && !(torsoTiltFront(c) > c.config.position.maxTorsoTilt),
+    position: (c, mode) => frontView(c, mode, 'raise') && !(torsoTiltFront(c) > c.config.position.maxTorsoTilt),
     snapshot: (c) => ({ top: Math.max(angle3(c, 'hip', 'shoulder', 'elbow', 'left'), angle3(c, 'hip', 'shoulder', 'elbow', 'right')) }),
     evaluate(t, extreme, config) {
       const e = rc(config, 'raise');
@@ -309,10 +402,16 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     sidePoints: oneSide(['shoulder', 'hip', 'knee', 'ankle']),
     value: (c) => torsoElevation(c),
     position(c, mode) {
-      if (!sideView(c)) return false;
+      if (!sideView(c, mode, 'crunch')) return false;
       // во время повторения корпус может подняться до вертикали (подъём корпуса), но человек не встаёт
       if (mode === 'motion') return kneesUp(c);
       return !(torsoElevation(c) > c.config.position.maxLyingTilt);
+    },
+    snapshot: (c) => ({ rise: shoulderRise(c) }),
+    // в верхней точке плечи выше таза: если выше таз — это мост, а не скручивание
+    accept: (t, config) => {
+      const m = optNum(config, 'crunch', 'minShoulderRise');
+      return m === undefined || !(t.snap.rise < m);
     },
     // «Оторви лопатки»: подъём от исходного положения меньше minRise (телефон может стоять с наклоном)
     evaluate: (_t, extreme, config, ref) => {
@@ -328,10 +427,14 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     countPoints: oneSide(['shoulder', 'hip', 'knee']),
     sidePoints: oneSide(['shoulder', 'elbow', 'hip', 'knee', 'ankle']),
     value: (c) => angle3(c, 'shoulder', 'hip', 'knee'),
-    position: (c, mode) => sideView(c) && (mode === 'prepare' || !(bodyTilt(c) > n(hc(c.config, 'plank').maxBodyTilt))),
+    position: (c, mode) => sideView(c, mode, 'plank') && (mode === 'prepare' || !(bodyTilt(c) > n(hc(c.config, 'plank').maxBodyTilt))),
     hold: {
       // в позе: тело почти горизонтально и плечи над опорой (лежащий на полу — не планка)
-      inPose: (c) => !(bodyTilt(c) > n(hc(c.config, 'plank').maxBodyTilt)) && aboveSupport(c, n(hc(c.config, 'plank').minSupport)),
+      inPose: (c) =>
+        !(bodyTilt(c) > n(hc(c.config, 'plank').maxBodyTilt)) &&
+        aboveSupport(c, n(hc(c.config, 'plank').minSupport)) &&
+        // боковая планка: плечи друг над другом
+        !(shoulderStack(c) > ((hc(c.config, 'plank').maxShoulderStack as number | undefined) ?? Infinity)),
       formError: (c, _v, current) => bodyLineError(c, n(hc(c.config, 'plank').minBodyLine), 'PLANK_SAG', 'PLANK_PIKE', current),
     },
   },

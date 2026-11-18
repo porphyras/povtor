@@ -73,7 +73,7 @@ export function createApp(config: AppConfig, settings: Settings, persist: (s: Se
         engine = null;
       }
       if (!pending || pending.variant !== variant) {
-        const promise: Promise<PoseEngine> = initPose(config, variant, (st, sh) => stageListener?.(st, sh), app.dev.delegate ?? undefined, app.dev.record).then((e) => {
+        const promise: Promise<PoseEngine> = initPose(config, variant, (st, sh) => stageListener?.(st, sh), app.dev.delegate ?? undefined).then((e) => {
           if (pending?.promise !== promise) {
             e.close(); // пока грузилось, пользователь выбрал другую модель
             throw new Error('загрузка устарела');

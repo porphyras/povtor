@@ -25,6 +25,8 @@ export interface AnalyzerDebug {
   holdMs: number;
   cleanHoldMs: number;
   holding: boolean;
+  /** Время последнего кадра, на котором удалось посчитать угол упражнения (например, в выпадах видна дальняя нога). */
+  lastValueT: number | null;
 }
 
 export interface Analyzer {
@@ -71,6 +73,7 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   let emaT = 0;
   let lastDt = 0;
   let raw: number | null = null;
+  let lastValueT: number | null = null;
   const rawBuf: number[] = [];
 
   // автомат повторений
@@ -104,6 +107,8 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   let badSince: number | null = null;
   let badCode: ErrorCode | null = null; // ошибка, которая держится сейчас
   const holdErrors: Partial<Record<ErrorCode, number>> = {};
+  const holdBuf: { t: number; v: number }[] = [];
+  let poseSince: number | null = null;
 
   const priority = (code: ErrorCode) => errorType(config, code).priority;
   const ctx = (frame: PoseFrame): Ctx => ({ f: frame, side, config, visMin });
@@ -263,7 +268,9 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   }
 
   function trackInRep(frame: PoseFrame, tMs: number) {
-    const m = median3(rawBuf); // медиана сырых значений: сглаживание завышает крайнюю точку
+    // медиана сырых значений: сглаживание завышает крайнюю точку. Сразу после разрыва в буфере 1–2 значения,
+    // и один ошибочный кадр стал бы «повторением»: из одного не берём ничего, из двух — менее крайнее.
+    const m = rawBuf.length >= 3 ? median3(rawBuf) : rawBuf.length === 2 ? Math.max(rawBuf[0], rawBuf[1]) : NaN;
     const c = ctx(frame);
     if (m < minS) {
       minS = m;
@@ -330,6 +337,7 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     const nat = spec.value(ctx(frame));
     if (Number.isNaN(nat)) return;
     raw = nat;
+    lastValueT = tMs;
     const v = smooth(S(nat), tMs);
 
     if (state === 'WAITING') {
@@ -405,22 +413,44 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     const c = ctx(frame);
     const rawNat = spec.value(c);
     raw = Number.isNaN(rawNat) ? raw : rawNat;
+    if (!Number.isNaN(rawNat)) lastValueT = tMs;
     // сглаживаем и здесь: у порога ошибки формы угол дрожит
     const nat = Number.isNaN(rawNat) ? rawNat : smooth(rawNat, tMs);
     const posOk = positionOk(frame, 'stance');
     setStatus(posOk ? 'OK' : 'WRONG_POSITION', out);
-    const inPose = posOk && !Number.isNaN(nat) && !!spec.hold?.inPose(c, nat);
+    // удержание — это неподвижность: если угол за последнюю секунду гуляет сильнее maxMotion, человек движется (приседает), а не держит позу
+    const hcfg = config.exercises[exercise] as { maxMotion?: number; motionWindowMs?: number };
+    if (!Number.isNaN(rawNat)) holdBuf.push({ t: tMs, v: rawNat });
+    while (holdBuf.length && tMs - holdBuf[0].t > (hcfg.motionWindowMs ?? 1000)) holdBuf.shift();
+    let still = true;
+    if (hcfg.maxMotion !== undefined && holdBuf.length > 1) {
+      let lo = Infinity, hi = -Infinity;
+      for (const p of holdBuf) {
+        lo = Math.min(lo, p.v);
+        hi = Math.max(hi, p.v);
+      }
+      still = hi - lo <= hcfg.maxMotion;
+    }
+    const poseNow = posOk && !Number.isNaN(nat) && !!spec.hold?.inPose(c, nat);
+    if (poseNow) poseSince ??= tMs;
+    else poseSince = null;
+    // неподвижность нужна только чтобы НАЧАТЬ удержание: присед проходит через нужный угол, но не замирает в нём
+    const inPose = poseNow && (holding || still);
     if (inPose) {
       outOfPoseSince = null;
+      let credit = 0;
       if (!holding) {
         holding = true;
         state = 'TOP';
         sideLocked = true;
         out.push({ type: 'hold', holding: true });
+        // время, пока человек уже был в позе и успокаивался, возвращаем (не больше окна проверки)
+        if (hcfg.maxMotion !== undefined && poseSince !== null) credit = Math.min(tMs - poseSince, hcfg.motionWindowMs ?? 1000);
       }
       const step = Math.min(dt, config.visibility.lostAfterMs); // после разрыва не добавляем лишнего, но и редкие кадры не теряем
-      holdMs += step;
+      holdMs += step + credit;
       const err = spec.hold?.formError(c, nat, badCode) ?? null;
+      if (credit && !err) cleanHoldMs += credit;
       if (err) {
         badSince ??= tMs;
         if (tMs - badSince >= (config.exercises[exercise] as { badHoldMs: number }).badHoldMs) {
@@ -567,6 +597,7 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
         holdMs: Math.round(holdMs),
         cleanHoldMs: Math.round(cleanHoldMs),
         holding,
+        lastValueT,
       };
     },
   };

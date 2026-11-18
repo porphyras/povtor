@@ -197,3 +197,17 @@ export function lyingFlatFrame(tMs: number): PoseFrame {
   const near: PartFrame = { Shoulder: { x: 150, y: 420 }, Elbow: { x: 160, y: 430 }, Wrist: { x: 120, y: 432 }, Hip: { x: 330, y: 425 }, Knee: { x: 450, y: 428 }, Ankle: { x: 560, y: 430 } };
   return frameOf(tMs, near, shift(near, 4), 0.95, 0.4);
 }
+
+/** Выпад сбоку: задняя (дальняя) нога — зеркальное отражение ближней относительно таза, поэтому стопы разведены. */
+export function lungeFrame(tMs: number, kneeAngle: number, o: SquatOpts = {}): PoseFrame {
+  const f = squatFrame(tMs, kneeAngle, o);
+  const near = o.side ?? 'left';
+  const far = near === 'left' ? 'right' : 'left';
+  const k = (s: string, n: string) => LM[(s + n) as keyof typeof LM];
+  const hipX = f.landmarks[k(near, 'Hip')].x;
+  for (const n of ['Knee', 'Ankle']) {
+    const p = f.landmarks[k(near, n)];
+    f.landmarks[k(far, n)] = { ...f.landmarks[k(far, n)], x: 2 * hipX - p.x, y: p.y };
+  }
+  return f;
+}

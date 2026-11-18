@@ -108,7 +108,6 @@ export async function initPose(
   variant: ModelVariant,
   onStage?: (stage: 'wasm' | 'model' | 'retry' | 'init' | 'warmup', share?: number) => void,
   forceDelegate?: Delegate,
-  withWorld = false, // мировые координаты нужны только для записи точек в режиме проверки
 ): Promise<PoseEngine> {
   try {
     // Библиотека качает wasm сама — без прогресса, таймаута и повтора, и на плохой сети может зависнуть навсегда.
@@ -220,7 +219,7 @@ export async function initPose(
           const res = landmarker.detectForVideo(source, nextTs());
           const lms = res.landmarks[0];
           if (!lms || lms.length < 33) return null;
-          const world = withWorld ? res.worldLandmarks[0] : undefined;
+          const world = res.worldLandmarks[0]; // пространственные точки: по ним планка отличается от боковой планки
           return {
             tMs: 0,
             width: w,

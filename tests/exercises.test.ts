@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createAnalyzer } from '../src/analyzer/analyzer';
 import type { AnalyzerEvent, Exercise, PoseFrame } from '../src/types';
-import { bridgeFrame, crunchFrame, curlFrame, loadTestConfig, lyingFlatFrame, pressFrame, pushupFrame, raiseFrame, squatFrame } from './synth';
+import { bridgeFrame, crunchFrame, curlFrame, loadTestConfig, lungeFrame, lyingFlatFrame, pressFrame, pushupFrame, raiseFrame, squatFrame } from './synth';
 
 const STEP = 67;
 type Make = (t: number, v: number) => PoseFrame;
@@ -24,7 +24,7 @@ const hold = (v: number, n = 10) => Array(n).fill(v);
 
 describe('выпады', () => {
   it('два глубоких выпада — чистые, неглубокий — «Ниже»', () => {
-    const r = run('lunge', squatFrame, 172, [...hold(172), ...cycle(172, 88), ...cycle(172, 88), ...cycle(172, 115), ...hold(172)]);
+    const r = run('lunge', lungeFrame, 172, [...hold(172), ...cycle(172, 88), ...cycle(172, 88), ...cycle(172, 115), ...hold(172)]);
     expect(r.reps.length).toBe(3);
     expect(r.reps[0].errors).toEqual([]);
     expect(r.reps[2].errors).toContain('LUNGE_DEPTH');
@@ -40,7 +40,7 @@ describe('выпады', () => {
     expect(run('lunge', step, 172, [...hold(172), ...cycle(172, 95), ...cycle(172, 95), ...hold(172)]).reps.length).toBe(0);
   });
   it('наклон корпуса в выпаде — «Корпус ровнее»', () => {
-    const lean: Make = (t, a) => squatFrame(t, a, { lean: a < 130 ? 40 : 5 });
+    const lean: Make = (t, a) => lungeFrame(t, a, { lean: a < 130 ? 40 : 5 });
     const r = run('lunge', lean, 172, [...hold(172), ...cycle(172, 88), ...hold(172)]);
     expect(r.reps[0].errors).toContain('LUNGE_LEAN');
   });

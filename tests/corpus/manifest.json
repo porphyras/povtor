@@ -1,0 +1,1343 @@
+[
+ {
+  "file": "squat_side_baby_mk36062.mp4",
+  "exercise": "squat",
+  "view": "side",
+  "expect": [
+   4,
+   5
+  ],
+  "kind": "positive",
+  "note": "боком, с ребёнком на руках; 5 приседаний, первое начинается на 0,3 с",
+  "source": "https://mixkit.co/free-stock-video/woman-doing-squats-with-her-baby-in-arms-36062/"
+ },
+ {
+  "file": "squat_side_barbell_vertical_wm.mp4",
+  "exercise": "squat",
+  "view": "side",
+  "expect": [
+   3,
+   4
+  ],
+  "kind": "positive",
+  "note": "вертикальное видео, почти боком (~20°), приседания со штангой; 4 повтора, первый начинается на 0,3 с",
+  "source": "https://commons.wikimedia.org/wiki/File:Barbell_back_squat_exercise_demonstration.webm"
+ },
+ {
+  "file": "squat_side_lowres_px8837221.mp4",
+  "exercise": "squat",
+  "view": "side",
+  "expect": [
+   4,
+   5
+  ],
+  "kind": "positive",
+  "note": "вертикальное видео 226×426 (очень низкое разрешение), почти боком; 5 приседаний",
+  "source": "https://www.pexels.com/video/a-woman-in-activewear-doing-squats-at-home-8837221/"
+ },
+ {
+  "file": "squat_side_older_px5025965.mp4",
+  "exercise": "squat",
+  "view": "side",
+  "expect": [
+   7,
+   8
+  ],
+  "kind": "positive",
+  "note": "боком, близко (стопы у нижнего края), быстрые приседания каждые ~2 с; 8 повторов, первое начинается с первого кадра",
+  "source": "https://www.pexels.com/video/woman-doing-a-squat-exercise-5025965/"
+ },
+ {
+  "file": "squat_diag_barbell_wm.mp4",
+  "exercise": "squat",
+  "view": "diagonal",
+  "expect": [
+   0,
+   2
+  ],
+  "kind": "hard",
+  "note": "сзади-сбоку (три четверти со спины), близко; 2 приседания со штангой",
+  "source": "https://commons.wikimedia.org/wiki/File:Squat_-_exercise_demonstration_video.webm"
+ },
+ {
+  "file": "squat_diag_coach_mk24305.mp4",
+  "exercise": "squat",
+  "view": "diagonal",
+  "expect": [
+   0,
+   6
+  ],
+  "kind": "hard",
+  "note": "камера движется вокруг, сзади-сбоку, рядом тренер; 0–5 с разговор, затем около 6 приседаний со штангой",
+  "source": "https://mixkit.co/free-stock-video/coach-supervising-squats-of-fitness-woman-24305/"
+ },
+ {
+  "file": "squat_diag_vertical_px4838220.mp4",
+  "exercise": "squat",
+  "view": "diagonal",
+  "expect": [
+   0,
+   2
+  ],
+  "kind": "hard",
+  "note": "ракурс три четверти (~45°), вертикальное видео; 2 полных приседа (0,3–3,3 и 5,0–8,0 с), третий оборван внизу в конце. Нужен либо отказ (WRONG_POSITION), либо не больше 2",
+  "source": "https://www.pexels.com/video/woman-doing-squats-4838220/"
+ },
+ {
+  "file": "squat_side_silhouette_kettlebell_wm.mp4",
+  "exercise": "squat",
+  "view": "side",
+  "expect": [
+   6,
+   6
+  ],
+  "kind": "hard",
+  "note": "силуэт против неба; поднимает гири (1–3 с), затем 6 медленных приседаний с паузами ~6 с, в конце ставит гири (48–49 с) — наклоны за гирями приседаниями не считаются",
+  "source": "https://commons.wikimedia.org/wiki/File:Kettlebell_Racked_Squats_(side_view).webm"
+ },
+ {
+  "file": "squat_front_px5034577.mp4",
+  "exercise": "squat",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "status": "WRONG_POSITION",
+  "note": "анфас, широкая стойка: 6 приседаний лицом к камере — должен просить встать боком",
+  "source": "https://www.pexels.com/video/woman-doing-squat-exercise-5034577/"
+ },
+ {
+  "file": "squat_front_short_mk52116.mp4",
+  "exercise": "squat",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "status": "WRONG_POSITION",
+  "note": "анфас, тёмный зал, 2 приседания с гантелями за 5,5 с — ракурс не тот",
+  "source": "https://mixkit.co/free-stock-video/a-young-toned-woman-wearing-snugly-sportsware-doing-squats-at-52116/"
+ },
+ {
+  "file": "squat_neg_deadlift_wm.mp4",
+  "exercise": "squat",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "становая тяга (сзади-сбоку): колени сгибаются мало, корпус наклоняется — не приседание",
+  "source": "https://commons.wikimedia.org/wiki/File:Deadlift_-_exercise_demonstration_video.webm"
+ },
+ {
+  "file": "squat_neg_walk_feet_mk23410.mp4",
+  "exercise": "squat",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "в кадре только ноги идущего человека — приседаний нет",
+  "source": "https://mixkit.co/free-stock-video/man-walking-on-the-concrete-sidewalk-23410/"
+ },
+ {
+  "file": "lunge_dark_dumbbells_mk52110.mp4",
+  "exercise": "lunge",
+  "view": "side",
+  "expect": [
+   4,
+   5
+  ],
+  "kind": "hard",
+  "note": "тёмный склад, далеко, обратные выпады с гантелями поочерёдно; 5 полных (первый начат с первого кадра), шестой в конце оборван",
+  "source": "https://mixkit.co/free-stock-video/a-young-woman-clad-in-black-workout-attire-exercise-at-52110/"
+ },
+ {
+  "file": "lunge_diag_vertical_px4488004.mp4",
+  "exercise": "lunge",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "hard",
+  "note": "растяжка в выпаде, три четверти: в начале уже в выпаде, встаёт, затем опускается в выпад на другую ногу и стоит в нём до конца — полных повторений нет",
+  "source": "https://www.pexels.com/video/woman-doing-leg-lunges-4488004/"
+ },
+ {
+  "file": "lunge_front_army_wm.mp4",
+  "exercise": "lunge",
+  "view": "front",
+  "expect": [
+   0,
+   4
+  ],
+  "kind": "hard",
+  "note": "учебный ролик армии: стоит анфас, склейки, крупный план ног, выпады с гирями (анфас и боком 16–20 и 32–37 с); эталон приблизительный (около 3)",
+  "source": "https://commons.wikimedia.org/wiki/File:Strength_Training_Circuit-_Forward_Lunge.webm"
+ },
+ {
+  "file": "lunge_front_dumbbells_mk42898.mp4",
+  "exercise": "lunge",
+  "view": "diagonal",
+  "expect": [
+   0,
+   2
+  ],
+  "kind": "hard",
+  "note": "три четверти спереди, низкая камера, ноги частично закрыты предметами на переднем плане; сплит-присед с гантелями, 2 полных цикла",
+  "source": "https://mixkit.co/free-stock-video/woman-exercising-in-her-living-room-42898/"
+ },
+ {
+  "file": "lunge_gym_far_mk52101.mp4",
+  "exercise": "lunge",
+  "view": "side",
+  "expect": [
+   1,
+   1
+  ],
+  "kind": "hard",
+  "note": "далеко, тёмный зал: в начале уже в выпаде (не считается), затем 1 обратный выпад с долгой задержкой внизу 4–9 с, дальше растяжка с упором рукой в пол и вращением",
+  "source": "https://mixkit.co/free-stock-video/muscular-man-doing-lunges-at-gym-52101/"
+ },
+ {
+  "file": "lunge_side_backlit_split_mk23913.mp4",
+  "exercise": "lunge",
+  "view": "side",
+  "expect": [
+   13,
+   14
+  ],
+  "kind": "hard",
+  "note": "силуэт против окна, частично закрыт стойкой с блинами; быстрые сплит-приседы (выпады на месте) каждые ~0,93 с с 2,4 по 15 с — 14 штук, последний заканчивается за 0,1 с до конца ролика. Эталон уточнён покадрово (первая оценка 9–13 была занижена)",
+  "source": "https://mixkit.co/free-stock-video/a-woman-doing-squats-in-the-gym-23913/"
+ },
+ {
+  "file": "lunge_front_coach_mk24304.mp4",
+  "exercise": "lunge",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "анфас, рядом тренер (боком к камере); девушка делает 4 мелких выпада лицом к камере, тренер приседает рядом. Модель позы берёт тренера, поэтому требуем только 0 повторений, без статуса",
+  "source": "https://mixkit.co/free-stock-video/coach-helping-women-doing-lunges-exercise-24304/"
+ },
+ {
+  "file": "lunge_front_lowangle_mk52098.mp4",
+  "exercise": "lunge",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "камера снизу анфас, ноги обрезаны по бедро; выпад с жимом — посчитать выпады нельзя",
+  "source": "https://mixkit.co/free-stock-video/a-strong-shirtless-muscular-man-doing-lunges-with-dumbbells-on-52098/"
+ },
+ {
+  "file": "lunge_front_vertical_px5510124.mp4",
+  "exercise": "lunge",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "status": "WRONG_POSITION",
+  "note": "лицом к камере: два долгих сплит-приседа (1–9 и 11–18 с); ракурс не боковой, ждём «встань боком»",
+  "source": "https://www.pexels.com/video/a-woman-doing-lunges-5510124/"
+ },
+ {
+  "file": "lunge_neg_sprintstart_mk8983.mp4",
+  "exercise": "lunge",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "другое: двое встают в низкий старт и убегают; выпадов нет",
+  "source": "https://mixkit.co/free-stock-video/motivated-couple-lunge-at-start-of-race-on-outdoor-track-8983/"
+ },
+ {
+  "file": "bridge_side_kitchen_px6767732.mp4",
+  "exercise": "bridge",
+  "view": "side",
+  "expect": [
+   3,
+   3
+  ],
+  "kind": "positive",
+  "note": "сбоку, ноутбук частично закрывает голову; начинает в верхней точке, затем 3 полных цикла низ→верх→низ (1–6, 6–11, 11–16 с)",
+  "source": "https://www.pexels.com/video/a-female-exercising-on-the-floor-6767732/"
+ },
+ {
+  "file": "bridge_side_vertical_far_px6525525.mp4",
+  "exercise": "bridge",
+  "view": "side",
+  "expect": [
+   1,
+   1
+  ],
+  "kind": "positive",
+  "note": "вертикальное видео, человек далеко и мелко; лежит 0–0,8 с, подъём 1,0–3,2, опускание 3,5; второй подъём 4,5–5,8 до конца ролика не завершён",
+  "source": "https://www.pexels.com/video/woman-working-out-6525525/"
+ },
+ {
+  "file": "bridge_side_white_px6525487.mp4",
+  "exercise": "bridge",
+  "view": "side",
+  "expect": [
+   1,
+   1
+  ],
+  "kind": "positive",
+  "note": "сбоку, белый фон; начинает наверху, опускание 1,2–2,2, подъём 2,5–3,2, опускание 3,5–5,2, второй подъём к концу не завершён — 1 полный",
+  "source": "https://www.pexels.com/video/woman-doing-glute-bridge-exercise-6525487/"
+ },
+ {
+  "file": "bridge_close_band_px4267358.mp4",
+  "exercise": "bridge",
+  "view": "side",
+  "expect": [
+   0,
+   4
+  ],
+  "kind": "hard",
+  "note": "очень близко: плечи и голова вне кадра, видны только таз и ноги; 4 опускания-подъёма, начинает в верхней точке (таз поднят). Корректно — «не вижу целиком» или не больше 4",
+  "source": "https://www.pexels.com/video/woman-exercising-4267358/"
+ },
+ {
+  "file": "bridge_close_man_px6111041.mp4",
+  "exercise": "bridge",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "hard",
+  "note": "крупный план: видны только голова, плечо и рука, таз и колени вне кадра; посчитать мост нельзя — ждём «не вижу целиком» и 0",
+  "source": "https://www.pexels.com/video/man-doing-hip-raise-butt-lift-6111041/"
+ },
+ {
+  "file": "bridge_group_px7928044.mp4",
+  "exercise": "bridge",
+  "view": "side",
+  "expect": [
+   0,
+   10
+  ],
+  "kind": "hard",
+  "note": "3–4 человека лежат в ряд и делают мост не синхронно, далеко, перекрывают друг друга; ближняя участница делает порядка 6–10 подъёмов (эталон приблизительный)",
+  "source": "https://www.pexels.com/video/people-in-retro-outfits-doing-hip-bridges-7928044/"
+ },
+ {
+  "file": "bridge_group_vertical_px7928048.mp4",
+  "exercise": "bridge",
+  "view": "diagonal",
+  "expect": [
+   0,
+   6
+  ],
+  "kind": "hard",
+  "note": "вертикальное видео, камера сверху со стороны головы, трое в кадре; ракурс не боковой — допустим отказ, эталон приблизительный (4–6 подъёмов у ближней)",
+  "source": "https://www.pexels.com/video/women-in-retro-outfits-doing-hip-bridges-together-7928048/"
+ },
+ {
+  "file": "bridge_neg_crunch_px8026546.mp4",
+  "exercise": "bridge",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "другое упражнение: подъёмы корпуса (скручивания) сбоку; мост считать нельзя",
+  "source": "https://www.pexels.com/video/man-doing-curl-ups-8026546/"
+ },
+ {
+  "file": "bridge_neg_sidelying_mk739.mp4",
+  "exercise": "bridge",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "другое упражнение: махи ногой лёжа на боку, лицом к камере; мостов нет",
+  "source": "https://mixkit.co/free-stock-video/fitness-woman-warming-up-at-a-gym-739/"
+ },
+ {
+  "file": "bridge_top_close_px8520042.mp4",
+  "exercise": "bridge",
+  "view": "top",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "камера сверху и близко, панорама от таза к лицу; человек просто лежит, ноги уходят из кадра — моста нет",
+  "source": "https://www.pexels.com/video/a-man-doing-glute-bridges-8520042/"
+ },
+ {
+  "file": "wallsit_neg_floor_px8520554.mp4",
+  "exercise": "wallsit",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   0.0
+  ],
+  "kind": "negative",
+  "note": "сидит на полу, прислонившись к стене, ноги согнуты — это не «стульчик» (таз на полу)",
+  "source": "https://www.pexels.com/video/a-woman-sitting-while-leaning-on-the-wall-8520554/"
+ },
+ {
+  "file": "wallsit_neg_squats_barbell_wm.mp4",
+  "exercise": "wallsit",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   0.0
+  ],
+  "kind": "negative",
+  "note": "динамические приседания со штангой сбоку (тот же ролик, что squat_side_barbell_vertical) — удержания нет",
+  "source": "https://commons.wikimedia.org/wiki/File:Barbell_back_squat_exercise_demonstration.webm"
+ },
+ {
+  "file": "wallsit_neg_squats_px4838220.mp4",
+  "exercise": "wallsit",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   0.0
+  ],
+  "kind": "negative",
+  "note": "динамические приседания (тот же ролик, что squat_diag_vertical) — удержания нет",
+  "source": "https://www.pexels.com/video/woman-doing-squats-4838220/"
+ },
+ {
+  "file": "wallsit_neg_walk_mk23818.mp4",
+  "exercise": "wallsit",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   0.0
+  ],
+  "kind": "negative",
+  "note": "человек идёт по тропинке — удержания нет",
+  "source": "https://mixkit.co/free-stock-video/young-man-walking-in-a-rural-path-23818/"
+ },
+ {
+  "file": "pushup_side_step_mk14827.mp4",
+  "exercise": "pushup",
+  "view": "diagonal",
+  "expect": [
+   0,
+   10
+  ],
+  "kind": "hard",
+  "note": "низкая камера сзади-сбоку (по точкам разворот ~55°, видна спина), руки на степ-платформе; входит в кадр, 10 отжиманий 4–17 с, встаёт и уходит. Отказ «встань боком» допустим (первая оценка ракурса ~30° была ошибочной)",
+  "source": "https://mixkit.co/free-stock-video/man-doing-push-ups-in-the-gym-14827/"
+ },
+ {
+  "file": "pushup_army_hrp_wm.mp4",
+  "exercise": "pushup",
+  "view": "side",
+  "expect": [
+   0,
+   6
+  ],
+  "kind": "hard",
+  "note": "учебный ролик армии США: монтаж общих (сбоку, проверяющие рядом) и крупных планов три четверти, отжимания с отрывом ладоней; эталон приблизительный (4–5 полных)",
+  "source": "https://commons.wikimedia.org/wiki/File:Army_Combat_Fitness_Test-_Hand-Release_Push-Up_(HRP)_(Event_3).webm"
+ },
+ {
+  "file": "pushup_knees_lowres_wm.mp4",
+  "exercise": "pushup",
+  "view": "diagonal",
+  "expect": [
+   0,
+   3
+  ],
+  "kind": "hard",
+  "note": "320×240, три четверти; 3 отжимания с колен, затем переход в полный упор и одно опускание в конце (не завершено)",
+  "source": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Push-ups.webm"
+ },
+ {
+  "file": "pushup_navy_wm.mp4",
+  "exercise": "pushup",
+  "view": "front",
+  "expect": [
+   0,
+   8
+  ],
+  "kind": "hard",
+  "note": "монтаж из разных ракурсов (анфас, три четверти, крупно), в конце человек говорит в камеру; эталон приблизительный, около 8 отжиманий",
+  "source": "https://commons.wikimedia.org/wiki/File:Navy-seal-buds-training-push-ups.ogv"
+ },
+ {
+  "file": "pushup_side_rain_mk33129.mp4",
+  "exercise": "pushup",
+  "view": "side",
+  "expect": [
+   4,
+   5
+  ],
+  "kind": "hard",
+  "note": "дождь, близко: в кадре корпус и руки, ноги за кадром; 5 отжиманий, первое с 0,7 с",
+  "source": "https://mixkit.co/free-stock-video/man-doing-hard-push-ups-in-the-rain-33129/"
+ },
+ {
+  "file": "pushup_side_silhouette_mk24306.mp4",
+  "exercise": "pushup",
+  "view": "side",
+  "expect": [
+   9,
+   10
+  ],
+  "kind": "hard",
+  "note": "силуэт против окна, боком; входит в кадр, 10 отжиманий 6–24 с, уходит",
+  "source": "https://mixkit.co/free-stock-video/silhouette-of-a-man-doing-push-ups-24306/"
+ },
+ {
+  "file": "pushup_side_silhouette_sky_wm.mp4",
+  "exercise": "pushup",
+  "view": "side",
+  "expect": [
+   6,
+   6
+  ],
+  "kind": "hard",
+  "note": "силуэт против неба, упор на ручках гирь, медленные отжимания с паузами в верхней точке: 6 штук",
+  "source": "https://commons.wikimedia.org/wiki/File:Interval_Push-ups.webm"
+ },
+ {
+  "file": "pushup_side_two_mk4525.mp4",
+  "exercise": "pushup",
+  "view": "diagonal",
+  "expect": [
+   0,
+   4
+  ],
+  "kind": "hard",
+  "note": "отец и сын, три четверти, ноги отца за кадром/за ребёнком; у отца 3–4 полных отжимания",
+  "source": "https://mixkit.co/free-stock-video/father-and-son-doing-push-ups-together-4525/"
+ },
+ {
+  "file": "pushup_two_overlap_wm.mp4",
+  "exercise": "pushup",
+  "view": "diagonal",
+  "expect": [
+   0,
+   1
+  ],
+  "kind": "hard",
+  "note": "двое: ближняя лежит на полу, дальний делает отжимания из «горки», три четверти спереди; полное — одно",
+  "source": "https://commons.wikimedia.org/wiki/File:Tanzanian_women_competing_pushups.ogv"
+ },
+ {
+  "file": "pushup_two_silhouette_mk24310.mp4",
+  "exercise": "pushup",
+  "view": "side",
+  "expect": [
+   0,
+   5
+  ],
+  "kind": "hard",
+  "note": "два силуэта перекрывают друг друга на фоне окна, далеко; эталон приблизительный (3–5)",
+  "source": "https://mixkit.co/free-stock-video/silhouette-of-girls-doing-push-ups-together-24310/"
+ },
+ {
+  "file": "pushup_front_mk24277.mp4",
+  "exercise": "pushup",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "status": "WRONG_POSITION",
+  "note": "анфас, головой к камере — ракурс не тот",
+  "source": "https://mixkit.co/free-stock-video/a-man-doing-push-ups-in-the-gym-24277/"
+ },
+ {
+  "file": "pushup_front_standup_mk50761.mp4",
+  "exercise": "pushup",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "status": "WRONG_POSITION",
+  "note": "анфас, затем встаёт и уходит",
+  "source": "https://mixkit.co/free-stock-video/a-young-black-man-does-push-ups-on-the-balcony-50761/"
+ },
+ {
+  "file": "curl_side_barbell_px4367577.mp4",
+  "exercise": "curl",
+  "view": "diagonal",
+  "expect": [
+   2,
+   2
+  ],
+  "kind": "positive",
+  "note": "близко, вполоборота, сгибания со штангой: начинает в верхней точке (не считается), затем 2 полных повтора (4,5–6,5 и 9,5–11 с)",
+  "source": "https://www.pexels.com/video/a-man-doing-biceps-curls-4367577/"
+ },
+ {
+  "file": "curl_close_arm_px5319430.mp4",
+  "exercise": "curl",
+  "view": "side",
+  "expect": [
+   0,
+   4
+  ],
+  "kind": "hard",
+  "note": "сверхкрупный план одной руки (плечо и предплечье), корпуса нет; 4 сгибания — ждём «не вижу целиком»",
+  "source": "https://www.pexels.com/video/a-man-working-out-using-dumbbell-5319430/"
+ },
+ {
+  "file": "curl_cuts_px15528204.mp4",
+  "exercise": "curl",
+  "view": "diagonal",
+  "expect": [
+   0,
+   6
+  ],
+  "kind": "hard",
+  "note": "низкая камера, монтаж: анфас, сбоку, крупно; сгибания одной рукой, около 5–6",
+  "source": "https://www.pexels.com/video/a-man-doing-biceps-exercises-with-dumbbells-at-the-gym-15528204/"
+ },
+ {
+  "file": "curl_diag_upper_mk1313.mp4",
+  "exercise": "curl",
+  "view": "diagonal",
+  "expect": [
+   3,
+   5
+  ],
+  "kind": "hard",
+  "note": "вполоборота, видна верхняя половина тела, попеременные сгибания (всего около 8, по 4 на руку); считается ближняя рука",
+  "source": "https://mixkit.co/free-stock-video/woman-working-out-with-dumbbells-1313/"
+ },
+ {
+  "file": "curl_seated_lowres_px6293121.mp4",
+  "exercise": "curl",
+  "view": "diagonal",
+  "expect": [
+   0,
+   10
+  ],
+  "kind": "hard",
+  "note": "226×426, сидит на скамье с наклоном вперёд, сгибания одной рукой; эталон приблизительный",
+  "source": "https://www.pexels.com/video/a-man-working-out-6293121/"
+ },
+ {
+  "file": "curl_vertical_rack_mk40788.mp4",
+  "exercise": "curl",
+  "view": "side",
+  "expect": [
+   0,
+   3
+  ],
+  "kind": "hard",
+  "note": "вертикальное видео, боком, большая гантель закрывает ближнюю руку; 2–3 подъёма к груди, эталон приблизительный",
+  "source": "https://mixkit.co/free-stock-video/athletic-man-doing-reps-with-a-large-dumbbell-40788/"
+ },
+ {
+  "file": "curl_mirror_vertical_px6547797.mp4",
+  "exercise": "curl",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "status": "WRONG_POSITION",
+  "note": "анфас перед зеркалом, попеременные сгибания — ракурс не тот, ждём «встань боком»",
+  "source": "https://www.pexels.com/video/man-lifting-dumbbells-in-front-of-the-mirror-6547797/"
+ },
+ {
+  "file": "curl_neg_raise_front_px5319102.mp4",
+  "exercise": "curl",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "status": "WRONG_POSITION",
+  "note": "разведения рук анфас — другое упражнение и не тот ракурс",
+  "source": "https://www.pexels.com/video/a-man-working-out-using-dumbbell-5319102/"
+ },
+ {
+  "file": "curl_neg_row_wm.mp4",
+  "exercise": "curl",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "тяга штанги в наклоне — другое упражнение",
+  "source": "https://commons.wikimedia.org/wiki/File:Bent-over_row_-_exercise_demonstration_video.webm"
+ },
+ {
+  "file": "press_front_pink_mk42899.mp4",
+  "exercise": "press",
+  "view": "front",
+  "expect": [
+   2,
+   2
+  ],
+  "kind": "positive",
+  "note": "анфас, низкая камера; берёт гантели к плечам (0,7–1,3 с), 2 полных жима, третий в конце не опущен",
+  "source": "https://mixkit.co/free-stock-video/woman-exercising-with-small-dumbbells-42899/"
+ },
+ {
+  "file": "press_couple_dark_mk40238.mp4",
+  "exercise": "press",
+  "view": "front",
+  "expect": [
+   0,
+   3
+  ],
+  "kind": "hard",
+  "note": "двое, тёмный синий свет, низкая камера: махи/подъём гантелей с пола и толчок над головой, около 3 у каждого",
+  "source": "https://mixkit.co/free-stock-video/couple-exercising-with-dumbbells-in-the-gym-40238/"
+ },
+ {
+  "file": "press_diag_barbell_wm.mp4",
+  "exercise": "press",
+  "view": "rear",
+  "expect": [
+   0,
+   3
+  ],
+  "kind": "hard",
+  "note": "сзади-сбоку, жим штанги стоя, около 3 повторов за 7 с",
+  "source": "https://commons.wikimedia.org/wiki/File:Shoulder_press_-_exercise_demonstration_video.webm"
+ },
+ {
+  "file": "press_kettlebell_silhouette_wm.mp4",
+  "exercise": "press",
+  "view": "front",
+  "expect": [
+   2,
+   2
+  ],
+  "kind": "hard",
+  "note": "силуэт против неба, почти анфас, жим двух гирь с паузами в стойке; начинает наверху, 2 полных повтора (6–9 и 14–17,5 с)",
+  "source": "https://commons.wikimedia.org/wiki/File:Double_Kettlebell_Strict_Press_(up_view).webm"
+ },
+ {
+  "file": "press_machine_lowres_cdc_wm.mp4",
+  "exercise": "press",
+  "view": "front",
+  "expect": [
+   0,
+   3
+  ],
+  "kind": "hard",
+  "note": "320×240, жим в тренажёре, монтаж с крупными планами рук; 3 повтора 16–30 с",
+  "source": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_the_Gym_-_Overhead_Press.webm"
+ },
+ {
+  "file": "press_rear_vertical_px20535458.mp4",
+  "exercise": "press",
+  "view": "rear",
+  "expect": [
+   0,
+   5
+  ],
+  "kind": "hard",
+  "note": "спиной к камере, жим сидя; 5 повторов, кисти с гантелями наверху уходят за край кадра",
+  "source": "https://www.pexels.com/video/a-girl-at-the-gym-doing-dumbbells-20535458/"
+ },
+ {
+  "file": "press_seated_cuts_wm.mp4",
+  "exercise": "press",
+  "view": "diagonal",
+  "expect": [
+   0,
+   6
+  ],
+  "kind": "hard",
+  "note": "монтаж: разговор в камеру, жим сидя сбоку крупно, затем вполоборота спереди (3 повтора 16–24 с), снова сбоку. По кадрам жимов в ролике не меньше шести (2 сбоку в начале, 3 вполоборота на 16–24 с, 1 около 30 с), поэтому верхняя граница 6: от прогона к прогону засчитывается 4 или 5, все — настоящие жимы",
+  "source": "https://commons.wikimedia.org/wiki/File:How_To_Properly_Dumbbell_Shoulder_Press.webm"
+ },
+ {
+  "file": "press_seated_lowres_cdc_wm.mp4",
+  "exercise": "press",
+  "view": "front",
+  "expect": [
+   2,
+   3
+  ],
+  "kind": "hard",
+  "note": "320×240, сидя анфас; объяснение 0–18 с, затем жимы, склейка на 21 с меняет масштаб; 3 полных повтора (последний в конце не опущен)",
+  "source": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Overhead_Press.webm"
+ },
+ {
+  "file": "press_neg_raise_occluded_px6892965.mp4",
+  "exercise": "press",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "подъёмы рук в стороны/вперёд вполоборота, передний план закрывает кадр — не жим",
+  "source": "https://www.pexels.com/video/a-woman-lifting-dumbbells-6892965/"
+ },
+ {
+  "file": "press_neg_raise_px5319098.mp4",
+  "exercise": "press",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "разведения рук в стороны (тот же ролик, что raise_front_vertical_far) — это не жим",
+  "source": "https://www.pexels.com/video/a-man-working-out-using-dumbbell-5319098/"
+ },
+ {
+  "file": "press_neg_stretch_mk50759.mp4",
+  "exercise": "press",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "растяжка рук анфас (руки в стороны, через грудь) — жима нет",
+  "source": "https://mixkit.co/free-stock-video/a-young-man-stretches-his-arms-on-the-balcony-50759/"
+ },
+ {
+  "file": "press_seated_side_px4367541.mp4",
+  "exercise": "press",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "status": "WRONG_POSITION",
+  "note": "жим сидя боком к камере — для жима нужен анфас",
+  "source": "https://www.pexels.com/video/a-man-doing-dumbbell-shoulder-press-4367541/"
+ },
+ {
+  "file": "raise_front_dark_px5319102.mp4",
+  "exercise": "raise",
+  "view": "front",
+  "expect": [
+   7,
+   7
+  ],
+  "kind": "positive",
+  "note": "анфас, тёмный зал; начинает наверху (не считается), 7 полных разведений, восьмое в конце не опущено",
+  "source": "https://www.pexels.com/video/a-man-working-out-using-dumbbell-5319102/"
+ },
+ {
+  "file": "raise_front_elderly_px7319943.mp4",
+  "exercise": "raise",
+  "view": "front",
+  "expect": [
+   2,
+   3
+  ],
+  "kind": "positive",
+  "note": "анфас, пожилой мужчина, видна верхняя часть тела; 3 разведения, первое начинается на 0,5 с",
+  "source": "https://www.pexels.com/video/elderly-man-lifting-dumbbells-7319943/"
+ },
+ {
+  "file": "raise_front_px5319084.mp4",
+  "exercise": "raise",
+  "view": "front",
+  "expect": [
+   5,
+   5
+  ],
+  "kind": "positive",
+  "note": "анфас, тёмный зал, далеко; начинает с поднятыми руками (не считается), затем 5 полных разведений, шестое в конце не опущено",
+  "source": "https://www.pexels.com/video/a-man-working-out-using-dumbbell-5319084/"
+ },
+ {
+  "file": "raise_front_vertical_far_px5319098.mp4",
+  "exercise": "raise",
+  "view": "front",
+  "expect": [
+   6,
+   6
+  ],
+  "kind": "positive",
+  "note": "вертикальное видео, анфас, далеко; 0–4 с наклон вперёд (другое упражнение), затем 6 разведений (9,5–29 с), в конце снова наклон",
+  "source": "https://www.pexels.com/video/a-man-working-out-using-dumbbell-5319098/"
+ },
+ {
+  "file": "raise_close_lowres_px5319101.mp4",
+  "exercise": "raise",
+  "view": "front",
+  "expect": [
+   0,
+   4
+  ],
+  "kind": "hard",
+  "note": "низкая камера близко: таз у нижнего края или за ним; 3–4 разведения (первое с первого кадра)",
+  "source": "https://www.pexels.com/video/a-man-working-out-using-dumbbell-5319101/"
+ },
+ {
+  "file": "raise_close_old_px6293119.mp4",
+  "exercise": "raise",
+  "view": "front",
+  "expect": [
+   0,
+   3
+  ],
+  "kind": "hard",
+  "note": "крупный план корпуса, таз за кадром, камера движется; 3 разведения",
+  "source": "https://www.pexels.com/video/a-man-working-out-6293119/"
+ },
+ {
+  "file": "raise_cuts_px6293157.mp4",
+  "exercise": "raise",
+  "view": "diagonal",
+  "expect": [
+   0,
+   2
+  ],
+  "kind": "hard",
+  "note": "0–9 с крупный план разведений (2), затем склейка на общий план с другим упражнением",
+  "source": "https://www.pexels.com/video/a-man-working-out-6293157/"
+ },
+ {
+  "file": "raise_diag_vertical_px5319088.mp4",
+  "exercise": "raise",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "hard",
+  "note": "вполоборота, разведение ОДНОЙ рукой (другая опущена) — приложение считает обе руки, засчитывать не должно",
+  "source": "https://www.pexels.com/video/a-man-working-out-using-dumbbell-5319088/"
+ },
+ {
+  "file": "raise_occluded_px6892965.mp4",
+  "exercise": "raise",
+  "view": "diagonal",
+  "expect": [
+   0,
+   1
+  ],
+  "kind": "hard",
+  "note": "вполоборота, низкая камера, 1,7–5 с передний план закрывает кадр; 1 полный подъём рук (6,7–8,3 с), разведения неполные/вперёд",
+  "source": "https://www.pexels.com/video/a-woman-lifting-dumbbells-6892965/"
+ },
+ {
+  "file": "raise_neg_frontraise_wm.mp4",
+  "exercise": "raise",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "присед с подъёмом гири вперёд, вполоборота — не разведения",
+  "source": "https://commons.wikimedia.org/wiki/File:Squat_and_Frontal_Raise.webm"
+ },
+ {
+  "file": "raise_neg_jumpingjacks_wm.mp4",
+  "exercise": "raise",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "прыжки «джампинг-джек» и бёрпи анфас: руки через стороны вверх — не разведения, ждём 0",
+  "source": "https://commons.wikimedia.org/wiki/File:Jumping_jacks_and_burpees.webm"
+ },
+ {
+  "file": "raise_neg_press_mk42899.mp4",
+  "exercise": "raise",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "жим гантелей над головой — не разведения",
+  "source": "https://mixkit.co/free-stock-video/woman-exercising-with-small-dumbbells-42899/"
+ },
+ {
+  "file": "raise_neg_stretch_mk50759.mp4",
+  "exercise": "raise",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "растяжка: руки в стороны и подолгу держит, потом через грудь — разведений с гантелями нет",
+  "source": "https://mixkit.co/free-stock-video/a-young-man-stretches-his-arms-on-the-balcony-50759/"
+ },
+ {
+  "file": "crunch_side_px8026546.mp4",
+  "exercise": "crunch",
+  "view": "side",
+  "expect": [
+   4,
+   5
+  ],
+  "kind": "positive",
+  "note": "сбоку, полные подъёмы корпуса (руки за головой), 5 повторений за 0,3–14,5 с; первое начинается почти с первого кадра и может не засчитаться; с 15 с лежит, руки вытянуты",
+  "source": "https://www.pexels.com/video/man-doing-curl-ups-8026546/"
+ },
+ {
+  "file": "crunch_close_px8472284.mp4",
+  "exercise": "crunch",
+  "view": "side",
+  "expect": [
+   0,
+   12
+  ],
+  "kind": "hard",
+  "note": "очень близко: голова и верх корпуса, таз у края кадра или за ним, камера плавает; около 12 скручиваний",
+  "source": "https://www.pexels.com/video/a-woman-doing-crunches-8472284/"
+ },
+ {
+  "file": "crunch_couple_feetlocked_px8402078.mp4",
+  "exercise": "crunch",
+  "view": "side",
+  "expect": [
+   2,
+   2
+  ],
+  "kind": "hard",
+  "note": "двое лицом друг к другу со сцепленными ногами, далеко; начинают сидя, 2 полных цикла низ→верх→низ (2→4→6 и 6→8→9 с), последний подъём в конце не завершён",
+  "source": "https://www.pexels.com/video/man-and-a-woman-doing-sit-ups-together-8402078/"
+ },
+ {
+  "file": "crunch_diag_lowres_cdc_wm.mp4",
+  "exercise": "crunch",
+  "view": "side",
+  "expect": [
+   0,
+   15
+  ],
+  "kind": "hard",
+  "note": "320×240: общий план 0–15 с (маленькие скручивания), крупный план головы 16–35 с, затем скручивания с поднятыми ногами; эталон приблизительный",
+  "source": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Sit-ups.webm"
+ },
+ {
+  "file": "crunch_grass_close_mk36015.mp4",
+  "exercise": "crunch",
+  "view": "side",
+  "expect": [
+   0,
+   9
+  ],
+  "kind": "hard",
+  "note": "сбоку, но близко: таз на краю кадра; 9 скручиваний, первое начинается с первого кадра",
+  "source": "https://mixkit.co/free-stock-video/woman-doing-sit-ups-on-grass-outdoors-36015/"
+ },
+ {
+  "file": "crunch_park_mask_mk40142.mp4",
+  "exercise": "crunch",
+  "view": "side",
+  "expect": [
+   1,
+   1
+  ],
+  "kind": "hard",
+  "note": "близко, второй человек держит ноги и закрывает часть тела, тёмная одежда; начинает на подъёме, 1 полный цикл 5→7,5→10,5 с, последний подъём в конце не завершён",
+  "source": "https://mixkit.co/free-stock-video/couple-exercising-in-the-park-40142/"
+ },
+ {
+  "file": "crunch_side_vertical_px8026524.mp4",
+  "exercise": "crunch",
+  "view": "diagonal",
+  "expect": [
+   0,
+   10
+  ],
+  "kind": "hard",
+  "note": "вертикальное видео, камера со стороны головы, близко и двигается, ноги вне кадра, в конце склейки крупных планов; около 10 подъёмов за 0–31 с",
+  "source": "https://www.pexels.com/video/man-doing-sit-ups-8026524/"
+ },
+ {
+  "file": "crunch_two_women_mk36143.mp4",
+  "exercise": "crunch",
+  "view": "side",
+  "expect": [
+   5,
+   6
+  ],
+  "kind": "hard",
+  "note": "двое лицом друг к другу, синхронно; лежат 0–1 с, затем 6 полных подъёмов, последний опускается к 30 с (конец ролика)",
+  "source": "https://mixkit.co/free-stock-video/female-friends-doing-sit-ups-together-at-home-36143/"
+ },
+ {
+  "file": "crunch_bicycle_px6525494.mp4",
+  "exercise": "crunch",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "«велосипед»: плечи всё время приподняты, корпус к полу не возвращается — другое упражнение",
+  "source": "https://www.pexels.com/video/woman-doing-abs-6525494/"
+ },
+ {
+  "file": "crunch_front_feet_vertical_px8026862.mp4",
+  "exercise": "crunch",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "status": "WRONG_POSITION",
+  "note": "камера в ногах, человек лицом к камере (около 8 подъёмов) — не тот ракурс, ждём «ляг боком»",
+  "source": "https://www.pexels.com/video/man-doing-curl-ups-8026862/"
+ },
+ {
+  "file": "crunch_neg_hanging_mk44421.mp4",
+  "exercise": "crunch",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "другое упражнение: подъёмы ног в висе на турнике, анфас",
+  "source": "https://mixkit.co/free-stock-video/strong-man-doing-sit-ups-with-a-barbell-44421/"
+ },
+ {
+  "file": "crunch_neg_stretch_mk44437.mp4",
+  "exercise": "crunch",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "растяжка сидя, двое в кадре; на спину не ложатся",
+  "source": "https://mixkit.co/free-stock-video/man-and-a-woman-gym-goers-stretching-44437/"
+ },
+ {
+  "file": "crunch_neg_topview_mk33666.mp4",
+  "exercise": "crunch",
+  "view": "top",
+  "expect": [
+   0,
+   0
+  ],
+  "kind": "negative",
+  "note": "камера сверху над лицом, крупно, склейки — посчитать нельзя",
+  "source": "https://mixkit.co/free-stock-video/man-doing-abs-exercise-top-shot-33666/"
+ },
+ {
+  "file": "plank_side_forearms_far_px6525496.mp4",
+  "exercise": "plank",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   5.0,
+   8.0
+  ],
+  "kind": "positive",
+  "note": "сбоку, далеко: переходы из планки на предплечьях в упор на руки и обратно весь ролик (8 с) — корпус в линии",
+  "source": "https://www.pexels.com/video/young-woman-doing-planks-6525496/"
+ },
+ {
+  "file": "plank_side_hands_px6286164.mp4",
+  "exercise": "plank",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   17.0,
+   20.0
+  ],
+  "kind": "positive",
+  "note": "планка на предплечьях сбоку, весь ролик 19,8 с",
+  "source": "https://www.pexels.com/video/a-woman-doing-planking-6286164/"
+ },
+ {
+  "file": "plank_cuts_px8836970.mp4",
+  "exercise": "plank",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   5.0,
+   28.0
+  ],
+  "kind": "hard",
+  "note": "упор на прямых руках: общий план сбоку 0–7 и 20–28 с, между ними крупный план лица (таза не видно)",
+  "source": "https://www.pexels.com/video/a-woman-doing-a-plank-8836970/"
+ },
+ {
+  "file": "plank_diag_elderly_px6023273.mp4",
+  "exercise": "plank",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   9.4
+  ],
+  "kind": "hard",
+  "note": "пожилая женщина, планка на предплечьях вполоборота, близко; весь ролик",
+  "source": "https://www.pexels.com/video/a-woman-planking-6023273/"
+ },
+ {
+  "file": "plank_group_masks_px6116178.mp4",
+  "exercise": "plank",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   4.7
+  ],
+  "kind": "hard",
+  "note": "несколько человек в планке рядом, вполоборота, 4,7 с",
+  "source": "https://www.pexels.com/video/women-wearing-face-mask-planking-at-the-gym-6116178/"
+ },
+ {
+  "file": "plank_group_navy_vertical_wm.mp4",
+  "exercise": "plank",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   15.0
+  ],
+  "kind": "hard",
+  "note": "монтаж флотского «челленджа»: вертикальное видео, много людей, планки с разных ракурсов вперемешку с людьми, стоящими и говорящими в камеру",
+  "source": "https://commons.wikimedia.org/wiki/File:Naval_Station_Rota_Navy_250_Plank_Challenge_(986473).webm"
+ },
+ {
+  "file": "plank_side_vertical_px6302985.mp4",
+  "exercise": "plank",
+  "view": "diagonal",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   10.0
+  ],
+  "kind": "hard",
+  "note": "вертикальное видео, планка на предплечьях вполоборота спереди, близко; весь ролик 10 с",
+  "source": "https://www.pexels.com/video/woman-in-plank-position-over-exercise-mat-6302985/"
+ },
+ {
+  "file": "plank_transitions_vertical_px6437916.mp4",
+  "exercise": "plank",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   4.0,
+   6.0
+  ],
+  "kind": "hard",
+  "note": "вертикальное видео: планка на предплечьях 0–5,3 с, затем поворот в боковую планку (это уже не планка); ноги уходят за правый край",
+  "source": "https://www.pexels.com/video/woman-doing-a-plank-position-6437916/"
+ },
+ {
+  "file": "plank_frontdiag_px4325592.mp4",
+  "exercise": "plank",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   0.0
+  ],
+  "kind": "negative",
+  "note": "упор лёжа анфас (голова к камере) — не тот ракурс",
+  "source": "https://www.pexels.com/video/man-doing-a-plank-4325592/"
+ },
+ {
+  "file": "plank_neg_sideplank_px6023266.mp4",
+  "exercise": "plank",
+  "view": "front",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   0.0
+  ],
+  "kind": "negative",
+  "note": "боковая планка лицом к камере — другое упражнение",
+  "source": "https://www.pexels.com/video/a-man-doing-a-side-plank-6023266/"
+ },
+ {
+  "file": "plank_neg_walk_mk23818.mp4",
+  "exercise": "plank",
+  "view": "side",
+  "expect": [
+   0,
+   0
+  ],
+  "hold": [
+   0.0,
+   0.0
+  ],
+  "kind": "negative",
+  "note": "человек идёт — планки нет",
+  "source": "https://mixkit.co/free-stock-video/young-man-walking-in-a-rural-path-23818/"
+ }
+]
