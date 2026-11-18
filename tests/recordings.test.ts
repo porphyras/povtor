@@ -29,7 +29,7 @@ function count(frames: PoseFrame[], ex: 'squat' | 'pushup'): number {
 }
 
 for (const c of CASES) {
-  const url = new URL(`../e2e/out/${c.file}.frames.json`, import.meta.url);
+  const url = new URL(`../e2e/out/${c.file}.chromium.frames.json`, import.meta.url);
   describe.skipIf(!existsSync(url))(`запись ${c.file}`, () => {
     const frames = existsSync(url) ? loadRecording(url) : [];
     for (const k of [1, 2, 3]) {

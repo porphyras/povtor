@@ -205,8 +205,11 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     return angleAt(px(frame, a), px(frame, b), px(frame, c));
   }
 
+  let lastDt = 0; // интервал до предыдущего кадра
+
   /** Экспоненциальное сглаживание с учётом реального интервала между кадрами. */
   function smooth(v: number, tMs: number): number {
+    lastDt = ema === null ? 0 : tMs - emaT;
     if (ema === null || tMs - emaT > gapResetMs) {
       ema = v;
       rawBuf.length = 0;
@@ -416,8 +419,10 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
       setStatus('OK', out);
       feedStand(v, tMs);
       topRun = v >= ex.top ? topRun + 1 : 0;
+      // выше порога «верх» два кадра подряд, а при редких кадрах (5–6 в секунду) хватит одного
+      const needRun = lastDt >= 150 ? 1 : 2;
       if (standReached(tMs)) enterTop();
-      else if (topRun >= 2) {
+      else if (topRun >= needRun) {
         // выпрямился без паузы — пороги по умолчанию
         ref = null;
         topThr = ex.top;

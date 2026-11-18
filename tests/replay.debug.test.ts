@@ -11,7 +11,8 @@ const ex = (process.env.EX ?? 'pushup') as 'squat' | 'pushup';
 
 describe.skipIf(!file)('replay', () => {
   it('печатает сигналы', () => {
-    const frames = loadRecording(new URL('../' + file, import.meta.url));
+    const k = Number(process.env.THIN ?? 1);
+    const frames = loadRecording(new URL('../' + file, import.meta.url)).filter((_, i) => i % k === 0);
     const cfg = loadTestConfig((c) => {
       c.prepare.readyHoldMs = 200;
       if (process.env.SIGNAL) c[ex].signal = process.env.SIGNAL as 'angle2d' | 'angle3d';

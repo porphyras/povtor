@@ -59,7 +59,7 @@ async function main() {
       window.__povtor.frames.map((f) => ({ t: Math.round(f.tMs), w: f.width, h: f.height, l: f.landmarks.map((p) => [+p.x.toFixed(4), +p.y.toFixed(4), +p.z.toFixed(4), +p.visibility.toFixed(3)]), g: f.world?.map((p) => [+p.x.toFixed(4), +p.y.toFixed(4), +p.z.toFixed(4)]) })),
     );
     mkdirSync(new URL('./out', import.meta.url), { recursive: true });
-    writeFileSync(new URL(`./out/${c.name}${args.model ? '.' + args.model : ''}.frames.json`, import.meta.url), JSON.stringify(frames));
+    writeFileSync(new URL(`./out/${c.name}.${browserName}${args.model ? '.' + args.model : ''}.frames.json`, import.meta.url), JSON.stringify(frames));
     const hook = await page.evaluate(() => {
       const h = window.__povtor;
       return {
