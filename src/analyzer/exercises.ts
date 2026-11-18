@@ -37,9 +37,13 @@ export interface ExerciseSpec {
   position(c: Ctx, mode: PosMode): boolean;
   snapshot?(c: Ctx): Record<string, number>;
   track?(c: Ctx, t: RepTrack, tMs: number): void;
-  evaluate?(t: RepTrack, extreme: number, config: AppConfig): ErrorCode[];
+  /** ref — естественный угол исходного положения, если он найден (калибровка), иначе null. */
+  evaluate?(t: RepTrack, extreme: number, config: AppConfig, ref: number | null): ErrorCode[];
   accept?(t: RepTrack, config: AppConfig): boolean;
-  hold?: { inPose(c: Ctx, value: number): boolean; formError(c: Ctx, value: number): ErrorCode | null };
+  /** current — ошибка, которая держится сейчас: для зоны нечувствительности у порога. */
+  hold?: { inPose(c: Ctx, value: number): boolean; formError(c: Ctx, value: number, current: ErrorCode | null): ErrorCode | null };
+  /** Хватает ли места в кадре (например, для рук над головой). false — статус NO_ROOM. */
+  room?(c: Ctx): boolean;
 }
 
 // ---------- помощники ----------
@@ -75,6 +79,26 @@ function bodyTilt(c: Ctx): number {
   return tiltFromHorizontal(P(c, 'shoulder'), far);
 }
 
+const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
+
+/** Плечи выше опоры (локтя или запястья) хотя бы на долю длины корпуса: человек в планке, а не лежит на полу. */
+function aboveSupport(c: Ctx, minShare: number): boolean {
+  const sh = P(c, 'shoulder');
+  const torso = dist(sh, P(c, 'hip'));
+  if (!torso) return false;
+  const supports = (['elbow', 'wrist'] as const).filter((j) => vis(c, j) >= c.visMin * 0.5).map((j) => P(c, j).y);
+  if (!supports.length) return true; // руки не видны — не мешаем, решает наклон тела
+  return (Math.max(...supports) - sh.y) / torso >= minShare;
+}
+
+/** Колени не намного ниже таза: человек лежит или сидит с согнутыми ногами, а не стоит. */
+function kneesUp(c: Ctx): boolean {
+  if (vis(c, 'knee') < c.visMin * 0.5) return true;
+  const hip = P(c, 'hip');
+  const torso = dist(P(c, 'shoulder'), hip);
+  return !torso || (P(c, 'knee').y - hip.y) / torso < 0.45;
+}
+
 /** Линия тела плечо–таз–колено: провис или задранный таз, если держится дольше holdMs. */
 function trackBodyLine(c: Ctx, t: RepTrack, tMs: number, minLine: number) {
   if (!(vis(c, 'shoulder') >= c.visMin && vis(c, 'hip') >= c.visMin && vis(c, 'knee') >= c.visMin)) {
@@ -97,13 +121,13 @@ function trackBodyLine(c: Ctx, t: RepTrack, tMs: number, minLine: number) {
   }
 }
 
-/** Ошибка линии тела в текущем кадре (для планки). */
-function bodyLineError(c: Ctx, minLine: number, sag: ErrorCode, pike: ErrorCode): ErrorCode | null {
+/** Ошибка линии тела в текущем кадре (для планки). Пока ошибка держится, выход из неё на 3° позже входа. */
+function bodyLineError(c: Ctx, minLine: number, sag: ErrorCode, pike: ErrorCode, current: ErrorCode | null): ErrorCode | null {
   if (!(vis(c, 'hip') >= c.visMin && vis(c, 'knee') >= c.visMin)) return null;
   const sh = P(c, 'shoulder');
   const hp = P(c, 'hip');
   const kn = P(c, 'knee');
-  if (angleAt(sh, hp, kn) >= minLine) return null;
+  if (angleAt(sh, hp, kn) >= minLine + (current ? 3 : 0)) return null;
   const off = hipOffsetFromLine(sh, hp, kn, 0.05 * c.f.width);
   if (Number.isNaN(off)) return null;
   return off > 0 ? sag : pike;
@@ -147,9 +171,10 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     value(c) {
       const near = angle3(c, 'hip', 'knee', 'ankle');
       const other: Side = c.side === 'left' ? 'right' : 'left';
+      // дальняя нога не видна — кадр пропускаем: по одной ноге шаг не отличить от выпада
       const farVisible = (['hip', 'knee', 'ankle'] as const).every((j) => vis(c, j, other) >= 0.3);
-      const far = farVisible ? angle3(c, 'hip', 'knee', 'ankle', other) : NaN;
-      return Number.isNaN(far) ? near : Math.max(near, far);
+      if (!farVisible) return NaN;
+      return Math.max(near, angle3(c, 'hip', 'knee', 'ankle', other));
     },
     position: (c, mode) => sideView(c) && (mode === 'motion' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
     snapshot: (c) => ({ torso: vis(c, 'shoulder') >= c.visMin ? torsoTilt(c) : NaN }),
@@ -171,7 +196,7 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     value: (c) => angle3(c, 'shoulder', 'hip', 'knee'),
     position(c, mode) {
       if (!sideView(c)) return false;
-      if (mode === 'motion') return !(torsoElevation(c) > 60);
+      if (mode === 'motion') return kneesUp(c) && !(torsoElevation(c) > 60);
       return !(torsoElevation(c) > c.config.position.maxLyingTilt); // лежит на спине
     },
     evaluate: (_t, extreme, config) => (extreme < n(rc(config, 'bridge').minPeak) ? ['BRIDGE_HEIGHT'] : []),
@@ -187,7 +212,7 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     position: (c, mode) => sideView(c) && (mode === 'prepare' || !(torsoTilt(c) > c.config.position.maxTorsoTilt)),
     hold: {
       inPose: (c, v) => v >= 50 && v <= n(hc(c.config, 'wallsit').maxKnee),
-      formError: (c, v) => (v > n(hc(c.config, 'wallsit').cleanMaxKnee) ? 'WALLSIT_HIGH' : null),
+      formError: (c, v, current) => (v > n(hc(c.config, 'wallsit').cleanMaxKnee) - (current ? 3 : 0) ? 'WALLSIT_HIGH' : null),
     },
   },
 
@@ -247,6 +272,14 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     // обе руки должны выпрямиться — берём меньший из двух углов в локтях
     value: (c) => Math.min(angle3(c, 'shoulder', 'elbow', 'wrist', 'left'), angle3(c, 'shoulder', 'elbow', 'wrist', 'right')),
     position: (c) => frontView(c) && !(torsoTiltFront(c) > c.config.position.maxTorsoTilt),
+    // руки над головой должны поместиться в кадр: плечо выше верхнего края хотя бы на длину руки
+    room(c) {
+      return (['left', 'right'] as const).every((sd) => {
+        const sh = P(c, 'shoulder', sd);
+        const arm = dist(sh, P(c, 'elbow', sd)) + dist(P(c, 'elbow', sd), P(c, 'wrist', sd));
+        return sh.y - arm >= 0.02 * c.f.height;
+      });
+    },
     evaluate: (_t, extreme, config) => (extreme < n(rc(config, 'press').minLockout) ? ['PRESS_LOCKOUT'] : []),
   },
 
@@ -277,10 +310,15 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     value: (c) => torsoElevation(c),
     position(c, mode) {
       if (!sideView(c)) return false;
-      if (mode === 'motion') return !(torsoElevation(c) > 80);
+      // во время повторения корпус может подняться до вертикали (подъём корпуса), но человек не встаёт
+      if (mode === 'motion') return kneesUp(c);
       return !(torsoElevation(c) > c.config.position.maxLyingTilt);
     },
-    evaluate: (_t, extreme, config) => (extreme < n(rc(config, 'crunch').minPeak) ? ['CRUNCH_LOW'] : []),
+    // «Оторви лопатки»: подъём от исходного положения меньше minRise (телефон может стоять с наклоном)
+    evaluate: (_t, extreme, config, ref) => {
+      const e = rc(config, 'crunch');
+      return extreme - (ref ?? n(e.top)) < n(e.minRise) ? ['CRUNCH_LOW'] : [];
+    },
   },
 
   plank: {
@@ -292,8 +330,9 @@ export const SPECS: Record<Exercise, ExerciseSpec> = {
     value: (c) => angle3(c, 'shoulder', 'hip', 'knee'),
     position: (c, mode) => sideView(c) && (mode === 'prepare' || !(bodyTilt(c) > n(hc(c.config, 'plank').maxBodyTilt))),
     hold: {
-      inPose: (c) => !(bodyTilt(c) > n(hc(c.config, 'plank').maxBodyTilt)),
-      formError: (c) => bodyLineError(c, n(hc(c.config, 'plank').minBodyLine), 'PLANK_SAG', 'PLANK_PIKE'),
+      // в позе: тело почти горизонтально и плечи над опорой (лежащий на полу — не планка)
+      inPose: (c) => !(bodyTilt(c) > n(hc(c.config, 'plank').maxBodyTilt)) && aboveSupport(c, n(hc(c.config, 'plank').minSupport)),
+      formError: (c, _v, current) => bodyLineError(c, n(hc(c.config, 'plank').minBodyLine), 'PLANK_SAG', 'PLANK_PIKE', current),
     },
   },
 };

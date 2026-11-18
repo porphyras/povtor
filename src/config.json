@@ -1,5 +1,5 @@
 {
-  "version": "2.0",
+  "version": "2.1",
   "camera": { "width": 640, "height": 480, "fps": 30 },
   "model": { "desktop": "full", "mobile": "full", "minDetection": 0.5, "minPresence": 0.5, "minTracking": 0.5 },
   "visibility": { "min": 0.6, "lostAfterMs": 1000 },
@@ -16,8 +16,8 @@
     "curl": { "direction": "down", "top": 150, "start": 135, "attempt": 75, "topHoldMs": 500, "minRepMs": 400, "maxSwing": 15, "maxElbowDrift": 35 },
     "press": { "direction": "up", "top": 110, "start": 125, "attempt": 150, "topHoldMs": 500, "minRepMs": 400, "minLockout": 160 },
     "raise": { "direction": "up", "top": 35, "start": 45, "attempt": 65, "topHoldMs": 500, "minRepMs": 400, "minPeak": 75, "maxPeak": 115 },
-    "crunch": { "direction": "up", "top": 12, "start": 18, "attempt": 25, "topHoldMs": 500, "minRepMs": 400, "topMargin": 5, "startMargin": 10, "minPeak": 30 },
-    "plank": { "maxBodyTilt": 35, "minBodyLine": 160, "badHoldMs": 250 }
+    "crunch": { "direction": "up", "top": 12, "start": 16, "attempt": 20, "topHoldMs": 500, "minRepMs": 400, "topMargin": 4, "startMargin": 8, "minRise": 20 },
+    "plank": { "maxBodyTilt": 35, "minBodyLine": 160, "badHoldMs": 250, "minSupport": 0.3 }
   },
   "feedback": { "minTipIntervalMs": 2000, "tipVisibleMs": 2000, "holdVoiceEverySec": 10 },
   "set": { "idleStopMs": 60000, "awayStopMs": 8000, "waitHintMs": 3000, "maxDurationMs": 600000, "maxReps": 200 },

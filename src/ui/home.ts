@@ -50,7 +50,12 @@ export function renderHome(root: HTMLElement, app: App): () => void {
     inApp
       ? h('p', { class: 'warnline', role: 'alert' }, 'Похоже, ссылка открыта внутри мессенджера. Камера здесь может не работать: открой «Повтор» в Chrome, Яндекс Браузере или Safari (меню мессенджера → «Открыть в браузере»).')
       : null,
-    h('header', { class: 'home-head' }, h('h1', null, 'Повтор'), h('p', { class: 'lead' }, 'Что делаем сегодня?')),
+    h(
+      'header',
+      { class: 'home-head' },
+      h('div', { class: 'home-title' }, h('h1', null, 'Повтор'), h('a', { href: '#/history', class: 'link head-link', id: 'history-link' }, 'История')),
+      h('p', { class: 'lead' }, 'Что делаем сегодня?'),
+    ),
     ...GROUPS.map((g) =>
       h('section', { class: 'group' }, h('h2', null, g.name), h('div', { class: 'choices' }, ...EXERCISES.filter((e) => e.group === g.id).map(card))),
     ),
@@ -68,7 +73,6 @@ export function renderHome(root: HTMLElement, app: App): () => void {
     ),
     h('label', { class: 'row' }, h('span', null, 'Голосовые подсказки'), voiceToggle),
     h('details', { class: 'settings' }, h('summary', null, 'Настройки'), h('label', { class: 'field' }, h('span', null, 'Модель распознавания'), modelSelect)),
-    h('nav', { class: 'links' }, h('a', { href: '#/history', class: 'link' }, 'История')),
     h('p', { class: 'note' }, 'Видео не записывается и не отправляется в интернет: всё обрабатывается на твоём устройстве. «Повтор» не ставит диагнозов и не заменяет врача или тренера, подсказки касаются только формы движения.'),
   );
   root.append(view);

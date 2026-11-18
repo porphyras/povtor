@@ -10,11 +10,13 @@ import { numberWord } from '../voice';
 import { clear, h, svg } from './dom';
 import { CATALOG, formatDuration, SILHOUETTES } from '../catalog';
 import { drawSkeleton } from './skeleton';
+import { plural } from './summary';
 
 type Phase = 'loading' | 'error' | 'prepare' | 'countdown' | 'counting' | 'saving';
 
 function statusText(ex: Exercise, s: Status | null, phase: Phase): string {
   if (s === 'NOT_VISIBLE' || s === null) return 'Не вижу тебя целиком. Отойди дальше от камеры';
+  if (s === 'NO_ROOM') return 'Руки над головой не помещаются в кадр. Отойди дальше';
   if (s === 'WRONG_POSITION') return phase === 'counting' ? CATALOG[ex].wrongCounting : CATALOG[ex].wrongPrepare;
   return 'Вижу целиком';
 }
@@ -22,6 +24,7 @@ function statusText(ex: Exercise, s: Status | null, phase: Phase): string {
 /** Что сказать голосом при смене статуса: с 2–3 метров текст не прочесть. */
 function statusVoice(ex: Exercise, s: Status | null, phase: Phase): string | null {
   if (s === 'NOT_VISIBLE') return 'Отойди дальше, не вижу тебя целиком';
+  if (s === 'NO_ROOM') return 'Отойди дальше, руки над головой не помещаются';
   if (s === 'WRONG_POSITION') return phase === 'counting' ? CATALOG[ex].wrongCounting : CATALOG[ex].wrongPrepare;
   return null;
 }
@@ -33,7 +36,7 @@ export function holdPhrase(sec: number): string {
   const s = sec % 60;
   const min = m === 0 ? '' : m < MINUTES.length ? MINUTES[m] : `${m} минут`;
   if (!s) return min;
-  return (min ? min + ' ' : '') + `${s} ${s % 10 === 1 && s !== 11 ? 'секунда' : 'секунд'}`;
+  return (min ? min + ' ' : '') + `${s} ${plural(s, 'секунда', 'секунды', 'секунд')}`;
 }
 
 type WakeLockSentinelLike = { release(): Promise<void> };

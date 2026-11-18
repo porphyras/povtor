@@ -57,7 +57,7 @@ export interface Rep {
   errors: ErrorCode[];
 }
 
-export type Status = 'OK' | 'NOT_VISIBLE' | 'WRONG_POSITION';
+export type Status = 'OK' | 'NOT_VISIBLE' | 'WRONG_POSITION' | 'NO_ROOM';
 export type MachineState = 'WAITING' | 'TOP' | 'IN_REP' | 'PAUSED';
 export type FinishReason = 'user' | 'idle' | 'away' | 'maxDuration' | 'maxReps';
 

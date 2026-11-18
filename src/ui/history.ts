@@ -1,6 +1,7 @@
 import type { App } from '../app';
 import { exerciseName } from '../catalog';
-import { dailyStats, setResult } from '../history';
+import { dailyStats, isHoldSet, setResult } from '../history';
+import { formatDuration } from '../catalog';
 import { clearHistory, exportCsv, listSets } from '../storage';
 import { appError } from '../errors';
 import type { SetRecord } from '../types';
@@ -59,7 +60,17 @@ export function renderHistory(root: HTMLElement, app: App): () => void {
       return;
     }
     content.append(
-      h('figure', { class: 'chart-box' }, chart(sets), h('figcaption', { class: 'muted' }, 'Повторений за неделю, тёмным — чистые')),
+      h(
+        'figure',
+        { class: 'chart-box' },
+        chart(sets),
+        h('figcaption', { class: 'muted' }, 'Повторений за неделю, тёмным — чистые'),
+        (() => {
+          const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+          const holdMs = sets.filter((s) => isHoldSet(s) && Date.parse(s.startedAt) >= weekAgo).reduce((a, s) => a + (s.holdMs ?? 0), 0);
+          return holdMs > 0 ? h('figcaption', { class: 'muted', id: 'hold-week' }, `Планка и «стульчик» за неделю: ${formatDuration(holdMs)}`) : null;
+        })(),
+      ),
       h(
         'ul',
         { class: 'setlist' },

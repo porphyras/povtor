@@ -80,6 +80,7 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   let topRun = 0;
   let waitingOkSince: number | null = null;
   let lastHintAt = -Infinity;
+  let hintCount = 0;
   let wrongSince: number | null = null;
   let awaySince: number | null = null;
   let ref: number | null = null; // опорный сигнал стойки (s)
@@ -196,7 +197,7 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     side = bestSide();
     const gate = visibilityGate(visibleFor(frame), tMs);
     if (gate === 'lost' || (gate === 'grace' && status === null)) setStatus('NOT_VISIBLE', out);
-    else if (gate === 'visible' && frame) setStatus(positionOk(frame, 'prepare') ? 'OK' : 'WRONG_POSITION', out);
+    else if (gate === 'visible' && frame) setStatus(!positionOk(frame, 'prepare') ? 'WRONG_POSITION' : spec.room && !spec.room(ctx(frame)) ? 'NO_ROOM' : 'OK', out);
     if (status === 'OK' && gate === 'visible') {
       if (okSince === null) okSince = tMs;
     } else if (gate !== 'grace') {
@@ -228,6 +229,9 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     startThr = Math.min(sStart, r - startMargin);
   }
 
+  /** Порог «засчитано»: из конфигурации, но не ближе 5° к порогу начала (если исходное положение сдвинуло пороги). */
+  const attemptThr = () => Math.min(sAttempt, startThr - 5);
+
   function feedStand(v: number, tMs: number) {
     stand.push({ t: tMs, v });
     // держим самое короткое окно, которое ещё покрывает topHoldMs (работает и при 5 кадрах/с)
@@ -245,8 +249,8 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     if (hi - lo > 8) return false;
     const sorted = stand.map((p) => p.v).sort((a, b) => a - b);
     const r = sorted[Math.floor(sorted.length / 2)];
-    // от стойки до порога «засчитано» есть запас для начала и конца повторения
-    if (Math.min(sStart, r - startMargin) <= sAttempt + 5) return false;
+    // исходное положение — до порога начала повторения (иначе человек замер посреди движения)
+    if (r < sStart) return false;
     calibrate(r);
     return true;
   }
@@ -283,9 +287,9 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   function closeRep(tMs: number, out: AnalyzerEvent[]) {
     const duration = tMs - repStart;
     const accepted = spec.accept ? spec.accept(track, config) : true;
-    if (minS <= sAttempt && duration >= minRepMs && accepted) {
+    if (minS <= attemptThr() && duration >= minRepMs && accepted) {
       const extreme = S(minS);
-      const errors = (spec.evaluate?.(track, extreme, config) ?? []).sort((a, b) => priority(a) - priority(b));
+      const errors = (spec.evaluate?.(track, extreme, config, ref === null ? null : S(ref)) ?? []).sort((a, b) => priority(a) - priority(b));
       const rep: Rep = {
         index: reps.length + 1,
         tStartMs: Math.round(repStart - countStart),
@@ -305,6 +309,7 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   }
 
   function enterTop() {
+    hintCount = 0;
     state = 'TOP';
     sideLocked = true;
     topRun = 0;
@@ -328,8 +333,9 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
     const v = smooth(S(nat), tMs);
 
     if (state === 'WAITING') {
-      if (!positionOk(frame, 'stance')) {
-        setStatus('WRONG_POSITION', out);
+      const noRoom = spec.room && !spec.room(ctx(frame));
+      if (!positionOk(frame, 'stance') || noRoom) {
+        setStatus(noRoom && positionOk(frame, 'stance') ? 'NO_ROOM' : 'WRONG_POSITION', out);
         stand = [];
         topRun = 0;
         waitingOkSince = null;
@@ -348,8 +354,10 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
         enterTop();
       } else {
         waitingOkSince ??= tMs;
-        if (tMs - waitingOkSince >= config.set.waitHintMs && tMs - lastHintAt >= config.set.waitHintMs) {
+        const gap = config.set.waitHintMs * 3 ** hintCount; // 3 с, потом 9, потом 27
+        if (tMs - waitingOkSince >= config.set.waitHintMs && tMs - lastHintAt >= gap) {
           lastHintAt = tMs;
+          hintCount += 1;
           out.push({ type: 'hint', code: 'STAND_STILL' });
         }
       }
@@ -395,9 +403,10 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   // ---------- удержание ----------
   function pushHold(frame: PoseFrame, tMs: number, dt: number, out: AnalyzerEvent[]) {
     const c = ctx(frame);
-    const nat = spec.value(c);
-    raw = Number.isNaN(nat) ? raw : nat;
-    ema = raw;
+    const rawNat = spec.value(c);
+    raw = Number.isNaN(rawNat) ? raw : rawNat;
+    // сглаживаем и здесь: у порога ошибки формы угол дрожит
+    const nat = Number.isNaN(rawNat) ? rawNat : smooth(rawNat, tMs);
     const posOk = positionOk(frame, 'stance');
     setStatus(posOk ? 'OK' : 'WRONG_POSITION', out);
     const inPose = posOk && !Number.isNaN(nat) && !!spec.hold?.inPose(c, nat);
@@ -409,9 +418,9 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
         sideLocked = true;
         out.push({ type: 'hold', holding: true });
       }
-      const step = Math.min(dt, 250); // после разрыва не добавляем лишнего
+      const step = Math.min(dt, config.visibility.lostAfterMs); // после разрыва не добавляем лишнего, но и редкие кадры не теряем
       holdMs += step;
-      const err = spec.hold?.formError(c, nat) ?? null;
+      const err = spec.hold?.formError(c, nat, badCode) ?? null;
       if (err) {
         badSince ??= tMs;
         if (tMs - badSince >= (config.exercises[exercise] as { badHoldMs: number }).badHoldMs) {

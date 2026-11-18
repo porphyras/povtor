@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createAnalyzer } from '../src/analyzer/analyzer';
 import type { AnalyzerEvent, Exercise, PoseFrame } from '../src/types';
-import { bridgeFrame, crunchFrame, curlFrame, loadTestConfig, pressFrame, pushupFrame, raiseFrame, squatFrame } from './synth';
+import { bridgeFrame, crunchFrame, curlFrame, loadTestConfig, lyingFlatFrame, pressFrame, pushupFrame, raiseFrame, squatFrame } from './synth';
 
 const STEP = 67;
 type Make = (t: number, v: number) => PoseFrame;
@@ -57,11 +57,39 @@ describe('ягодичный мост', () => {
 });
 
 describe('скручивания', () => {
-  it('подъём корпуса на 35° — повторение, на 27° — «Оторви лопатки»', () => {
-    const r = run('crunch', crunchFrame, 3, [...hold(3), ...cycle(3, 38), ...cycle(3, 38), ...cycle(3, 27), ...hold(3)]);
+  it('подъём на 30° — чистое, на 22° — засчитано с «Оторви лопатки», на 16° — не засчитано', () => {
+    const r = run('crunch', crunchFrame, 3, [...hold(3), ...cycle(3, 30), ...cycle(3, 30), ...cycle(3, 22), ...cycle(3, 16), ...hold(3)]);
     expect(r.reps.length).toBe(3);
     expect(r.reps[0].errors).toEqual([]);
     expect(r.reps[2].errors).toEqual(['CRUNCH_LOW']);
+  });
+  it('подъём корпуса с паузой наверху (90°) засчитывается', () => {
+    const up = [...cycle(3, 90, 12).slice(0, 6), ...hold(90, 12), ...cycle(3, 90, 12).slice(6)];
+    expect(run('crunch', crunchFrame, 3, [...hold(3), ...up, ...up, ...hold(3)]).reps.length).toBe(2);
+  });
+  it('телефон с наклоном: лёжа линия корпуса читается как 14° — счёт идёт от неё', () => {
+    const r = run('crunch', crunchFrame, 14, [...hold(14), ...cycle(14, 45), ...cycle(14, 45), ...hold(14)]);
+    expect(r.reps.length).toBe(2);
+  });
+});
+
+describe('ягодичный мост: стопы далеко от таза', () => {
+  it('исходный угол 147° — пороги подстраиваются, повторения считаются', () => {
+    const far: Make = (t, lift) => bridgeFrame(t, lift, { x: 420, y: 320 });
+    const r = run('bridge', far, 0, [...hold(0), ...cycle(0, 44), ...cycle(0, 44), ...hold(0)]);
+    expect(r.reps.length).toBe(2);
+    expect(r.ev.filter((e) => e.type === 'hint').length).toBe(0);
+  });
+});
+
+describe('выпады: дальняя нога не видна', () => {
+  it('шаги не превращаются в выпады', () => {
+    const blind: Make = (t, a) => {
+      const f = squatFrame(t, a);
+      for (const i of [24, 26, 28]) f.landmarks[i] = { ...f.landmarks[i], visibility: 0.2 };
+      return f;
+    };
+    expect(run('lunge', blind, 172, [...hold(172), ...cycle(172, 95), ...cycle(172, 95), ...hold(172)]).reps.length).toBe(0);
   });
 });
 
@@ -84,6 +112,10 @@ describe('жим над головой', () => {
     expect(r.reps[0].errors).toEqual([]);
     expect(r.reps[2].errors).toEqual(['PRESS_LOCKOUT']);
   });
+  it('руки над головой не помещаются в кадр — просим отойти', () => {
+    const r = run('press', (t, a) => pressFrame(t, a, 90), 85, hold(85, 20));
+    expect(r.ev).toContainEqual({ type: 'status', status: 'NO_ROOM' });
+  });
   it('стоит боком — просим встать лицом', () => {
     const r = run('press', (t, a) => curlFrame(t, a), 170, hold(170, 20));
     expect(r.ev).toContainEqual({ type: 'status', status: 'WRONG_POSITION' });
@@ -98,6 +130,27 @@ describe('разведение рук', () => {
     expect(r.reps[0].errors).toEqual([]);
     expect(r.reps[1].errors).toEqual(['RAISE_LOW']);
     expect(r.reps[2].errors).toEqual(['RAISE_HIGH']);
+  });
+});
+
+describe('удержание: краевые случаи', () => {
+  it('лежит на полу — это не планка', () => {
+    const r = run('plank', (t) => lyingFlatFrame(t), 0, hold(0, 300));
+    expect(r.sum.holdMs).toBe(0);
+  });
+  it('при 3 кадрах в секунду время не теряется', () => {
+    const an = createAnalyzer('plank', loadTestConfig());
+    let t = 0;
+    for (; t < 1500; t += 333) an.push(pushupFrame(t, 170), t);
+    an.startCounting(t);
+    const start = t;
+    for (; t < start + 30000; t += 333) an.push(pushupFrame(t, 170), t);
+    expect(an.finish(t).holdMs).toBeGreaterThan(28000);
+  });
+  it('«стульчик»: дрожание около 110° не множит ошибки', () => {
+    const jitter = Array.from({ length: 450 }, (_, i) => 111 + 4 * Math.sin(i * 1.7));
+    const r = run('wallsit', (t, a) => squatFrame(t, a, { lean: 3 }), 172, jitter);
+    expect(r.sum.errorsCount.WALLSIT_HIGH ?? 0).toBeLessThanOrEqual(1);
   });
 });
 

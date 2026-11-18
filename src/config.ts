@@ -106,7 +106,7 @@ export function validateConfig(raw: unknown): AppConfig {
     ['squat', 'maxThighAngle'], ['squat', 'maxLean'], ['lunge', 'maxDepthAngle'], ['lunge', 'maxLean'], ['bridge', 'minPeak'],
     ['wallsit', 'maxKnee'], ['wallsit', 'cleanMaxKnee'], ['pushup', 'clean'], ['pushup', 'minBodyLine'], ['pushup', 'bodyLineHoldMs'],
     ['curl', 'maxSwing'], ['curl', 'maxElbowDrift'], ['press', 'minLockout'], ['raise', 'minPeak'], ['raise', 'maxPeak'],
-    ['crunch', 'minPeak'], ['plank', 'maxBodyTilt'], ['plank', 'minBodyLine'],
+    ['crunch', 'minRise'], ['plank', 'maxBodyTilt'], ['plank', 'minBodyLine'], ['plank', 'minSupport'],
   ];
   for (const [ex, k] of need) num((c.exercises[ex] as Record<string, unknown>)[k], `${ex}.${k}`, 0, 5000);
   num(c.feedback?.minTipIntervalMs, 'feedback.minTipIntervalMs', 0, 60000);

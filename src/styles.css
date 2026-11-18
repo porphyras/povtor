@@ -53,6 +53,8 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 
 /* главная */
 .home-head { margin: 8px 0 20px; }
+.home-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.head-link { font-size: 17px; font-weight: 600; text-decoration: none; padding: 6px 2px; }
 .group { margin-bottom: 18px; }
 .group h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 2px 8px; }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

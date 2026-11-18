@@ -139,8 +139,8 @@ function frameOf(tMs: number, left: PartFrame, right: PartFrame, visL = 0.95, vi
 const shift = (pts: PartFrame, dx: number): PartFrame => Object.fromEntries(Object.entries(pts).map(([k, p]) => [k, { x: (p as P).x + dx, y: (p as P).y }]));
 
 /** Сбоку, лёжа на спине, колени согнуты; lift — подъём таза в пикселях (48 — прямая линия плечо–таз–колено). */
-export function bridgeFrame(tMs: number, lift: number): PoseFrame {
-  const near: PartFrame = { Shoulder: { x: 150, y: 400 }, Hip: { x: 300, y: 400 - lift }, Knee: { x: 400, y: 320 }, Ankle: { x: 420, y: 400 }, Elbow: { x: 190, y: 420 }, Wrist: { x: 240, y: 425 } };
+export function bridgeFrame(tMs: number, lift: number, knee: P = { x: 400, y: 320 }): PoseFrame {
+  const near: PartFrame = { Shoulder: { x: 150, y: 400 }, Hip: { x: 300, y: 400 - lift }, Knee: knee, Ankle: { x: knee.x + 20, y: 400 }, Elbow: { x: 190, y: 420 }, Wrist: { x: 240, y: 425 } };
   return frameOf(tMs, near, shift(near, 4), 0.95, 0.4);
 }
 
@@ -168,14 +168,14 @@ export function curlFrame(tMs: number, elbowAngle: number, o: { lean?: number; d
 }
 
 /** Лицом к камере: обе руки, угол в локтях elbowAngle (жим над головой). */
-export function pressFrame(tMs: number, elbowAngle: number): PoseFrame {
+export function pressFrame(tMs: number, elbowAngle: number, shoulderY = 200): PoseFrame {
   const a = deg(elbowAngle);
   const mk = (sign: number): PartFrame => {
-    const shoulder = { x: 320 + sign * 60, y: 200 };
-    const elbow = { x: shoulder.x + sign * 50, y: 205 };
+    const shoulder = { x: 320 + sign * 60, y: shoulderY };
+    const elbow = { x: shoulder.x + sign * 50, y: shoulderY + 5 };
     // вектор локоть→плечо направлен к центру; запястье повёрнуто от него на угол a вверх
     const wrist = { x: elbow.x - sign * 70 * Math.cos(a), y: elbow.y - 70 * Math.sin(a) };
-    return { Shoulder: shoulder, Elbow: elbow, Wrist: wrist, Hip: { x: 320 + sign * 40, y: 350 }, Knee: { x: 320 + sign * 40, y: 420 }, Ankle: { x: 320 + sign * 40, y: 470 } };
+    return { Shoulder: shoulder, Elbow: elbow, Wrist: wrist, Hip: { x: 320 + sign * 40, y: shoulderY + 150 }, Knee: { x: 320 + sign * 40, y: shoulderY + 220 }, Ankle: { x: 320 + sign * 40, y: shoulderY + 270 } };
   };
   return frameOf(tMs, mk(1), mk(-1));
 }
@@ -190,4 +190,10 @@ export function raiseFrame(tMs: number, abd: number): PoseFrame {
     return { Shoulder: shoulder, Elbow: elbow, Wrist: { x: elbow.x + sign * 60 * Math.sin(a), y: elbow.y + 60 * Math.cos(a) }, Hip: hip, Knee: { x: hip.x, y: 420 }, Ankle: { x: hip.x, y: 470 } };
   };
   return frameOf(tMs, mk(1), mk(-1));
+}
+
+/** Лежит на животе на полу: тело горизонтально, плечи на уровне локтей (не планка). */
+export function lyingFlatFrame(tMs: number): PoseFrame {
+  const near: PartFrame = { Shoulder: { x: 150, y: 420 }, Elbow: { x: 160, y: 430 }, Wrist: { x: 120, y: 432 }, Hip: { x: 330, y: 425 }, Knee: { x: 450, y: 428 }, Ankle: { x: 560, y: 430 } };
+  return frameOf(tMs, near, shift(near, 4), 0.95, 0.4);
 }
