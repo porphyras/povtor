@@ -4,11 +4,12 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 
 const PORT = 5181;
-const BASE = `http://127.0.0.1:${PORT}/`;
+const BASE = process.env.BASE || `http://127.0.0.1:${PORT}/`;
 const FILE = new URL('../test-videos/pushup_side.mjpeg', import.meta.url).pathname;
 
-const server = spawn('npx', ['vite', '--port', String(PORT), '--strictPort'], { cwd: new URL('..', import.meta.url).pathname, stdio: ['ignore', 'pipe', 'ignore'] });
-await new Promise((r) => server.stdout.on('data', (d) => String(d).includes('Local') && r()));
+// BASE=https://… — проверка опубликованной версии, локальный сервер не нужен
+const server = process.env.BASE ? null : spawn('npx', ['vite', '--port', String(PORT), '--strictPort'], { cwd: new URL('..', import.meta.url).pathname, stdio: ['ignore', 'pipe', 'ignore'] });
+if (server) await new Promise((r) => server.stdout.on('data', (d) => String(d).includes('Local') && r()));
 
 const browser = await chromium.launch({
   headless: true,
@@ -18,6 +19,11 @@ const ctx = await browser.newContext({ viewport: { width: 900, height: 700 }, pe
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
+const external = [];
+page.on('request', (r) => {
+  const u = new URL(r.url());
+  if (!['127.0.0.1', 'localhost', new URL(BASE).hostname].includes(u.hostname) && !u.protocol.startsWith('blob') && !u.protocol.startsWith('data')) external.push(r.url());
+});
 let code = 0;
 try {
   await page.goto(BASE + '?dev&delegate=CPU#/');
@@ -49,6 +55,7 @@ try {
   code = 1;
 }
 console.log('ошибки страницы:', errors.length ? errors : 'нет');
+console.log('запросы к другим сайтам:', external.length ? external : 'нет');
 await browser.close();
-server.kill();
+server?.kill();
 process.exit(code);
