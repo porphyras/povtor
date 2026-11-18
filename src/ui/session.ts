@@ -5,10 +5,11 @@ import { errorType } from '../config';
 import { appError, PovtorError } from '../errors';
 import type { PoseEngine } from '../pose';
 import { saveSet } from '../storage';
-import type { AnalyzerEvent, AppError, AppErrorCode, ErrorCode, Exercise, FinishReason, Rep, RepRecord, SetRecord, Side, Status } from '../types';
+import type { AnalyzerEvent, AppError, AppErrorCode, ErrorCode, Exercise, FinishReason, PoseFrame, Rep, RepRecord, SetRecord, Side, Status } from '../types';
 import { numberWord } from '../voice';
 import { clear, h, svg } from './dom';
 import { CATALOG, formatDuration, SILHOUETTES } from '../catalog';
+import { OneEuro } from '../analyzer/geometry';
 import { drawSkeleton } from './skeleton';
 import { plural } from './summary';
 
@@ -311,6 +312,18 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     if (!stopped && !finalized && my === gen) void finalize('user');
   }
 
+  // Скелет на экране рисуем по сглаженным точкам (фильтр One Euro): в покое не дрожит, при быстром движении почти без задержки.
+  // На счёт это не влияет — анализатор получает исходные точки.
+  let drawFilters: OneEuro[] = [];
+  let drawT = -Infinity;
+  function smoothForDraw(f: PoseFrame | null, t: number): PoseFrame | null {
+    if (!f) return f;
+    if (t - drawT > 500) drawFilters = [];
+    drawT = t;
+    const g = (k: number) => (drawFilters[k] ??= new OneEuro(1.5, 5, 1));
+    return { ...f, landmarks: f.landmarks.map((p, i) => ({ ...p, x: g(2 * i).filter(p.x, t), y: g(2 * i + 1).filter(p.y, t) })) };
+  }
+
   /** Холст скелета повторяет размер кадра: телефон для отжиманий поворачивают уже после старта. */
   function fitCanvas() {
     const w = video.videoWidth || 640;
@@ -345,7 +358,7 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     if (events.length) hook.events.push(...events);
     handle(events, tA);
     const dbg = analyzer.debug();
-    drawSkeleton(ctx, frame, info.view === 'front' ? null : dbg.side, config.visibility.min, !tip.classList.contains('hidden') && tip.classList.contains('warn'));
+    drawSkeleton(ctx, smoothForDraw(frame, tA), info.view === 'front' ? null : dbg.side, config.visibility.min, !tip.classList.contains('hidden') && tip.classList.contains('warn'));
     if (phase === 'counting') {
       if (pendingStatusNote !== statusNote && tA - pendingSince >= 600) {
         statusNote = pendingStatusNote;

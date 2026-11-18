@@ -111,7 +111,7 @@ export function createAnalyzer(exercise: Exercise, config: AppConfig): Analyzer 
   let poseSince: number | null = null;
 
   const priority = (code: ErrorCode) => errorType(config, code).priority;
-  const ctx = (frame: PoseFrame): Ctx => ({ f: frame, side, config, visMin });
+  const ctx = (frame: PoseFrame): Ctx => ({ f: frame, ex: exercise, viewOk: status === null ? undefined : status !== 'WRONG_POSITION', side, config, visMin });
 
   // ---------- сторона и положение ----------
   function meanOf(frame: PoseFrame, s: Side, key: 'visibility' | 'z'): number {

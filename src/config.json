@@ -1,11 +1,11 @@
 {
-  "version": "2.2",
+  "version": "2.3",
   "camera": { "width": 640, "height": 480, "fps": 30 },
   "model": { "desktop": "full", "mobile": "full", "minDetection": 0.5, "minPresence": 0.5, "minTracking": 0.5 },
   "visibility": { "min": 0.6, "lostAfterMs": 1000 },
-  "smoothing": { "tauMs": 130, "gapResetMs": 500 },
+  "smoothing": { "tauMs": 130, "gapResetMs": 500, "angles3d": ["lunge", "curl"] },
   "calibration": { "topMargin": 10, "startMargin": 20 },
-  "position": { "maxSideRatio": 0.5, "minFrontRatio": 0.5, "maxTorsoTilt": 30, "maxBodyTilt": 45, "maxLyingTilt": 25, "maxFrontRatio": 1.2 },
+  "position": { "maxSideRatio": 0.5, "minFrontRatio": 0.5, "maxTorsoTilt": 30, "maxBodyTilt": 45, "maxLyingTilt": 25, "maxFrontRatio": 1.2, "viewHysteresis": 0.05 },
   "prepare": { "readyHoldMs": 1000, "countdownSec": 3 },
   "exercises": {
     "squat": { "direction": "down", "top": 160, "start": 150, "attempt": 120, "topHoldMs": 500, "minRepMs": 400, "maxThighAngle": 15, "maxLean": 55, "maxSplit": 0.5 },

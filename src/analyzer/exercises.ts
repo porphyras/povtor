@@ -2,12 +2,15 @@
 // Углы «естественные», в градусах. Для упражнений «вверх» (мост, жим, разведения, скручивания) повторение — рост угла.
 import type { AppConfig, HoldConfig, RepConfig } from '../config';
 import type { ErrorCode, Exercise, PoseFrame, Side } from '../types';
-import { angleAt, hipOffsetFromLine, jointIndex, px, shoulderRatio, thighAngle, tiltFromHorizontal, tiltFromVertical, type Joint, type Pt } from './geometry';
+import { angleAt, angleAt3, hipOffsetFromLine, jointIndex, px, shoulderRatio, thighAngle, tiltFromHorizontal, tiltFromVertical, type Joint, type Pt } from './geometry';
 
 export type PosMode = 'prepare' | 'stance' | 'motion';
 
 export interface Ctx {
   f: PoseFrame;
+  ex?: Exercise;
+  /** Сейчас ракурс верный (статус OK): для запаса у порога. */
+  viewOk?: boolean;
   side: Side;
   config: AppConfig;
   visMin: number;
@@ -52,12 +55,18 @@ const P = (c: Ctx, joint: Joint, side: Side = c.side): Pt => px(c.f, J(side, joi
 const vis = (c: Ctx, joint: Joint, side: Side = c.side) => c.f.landmarks[J(side, joint)]?.visibility ?? 0;
 const both = (joints: Joint[]) => [...joints.map((j) => J('left', j)), ...joints.map((j) => J('right', j))];
 const oneSide = (joints: Joint[]) => (s: Side) => joints.map((j) => J(s, j));
-const angle3 = (c: Ctx, a: Joint, b: Joint, d: Joint, side: Side = c.side) => angleAt(P(c, a, side), P(c, b, side), P(c, d, side));
+/** Угол в суставе b. С angles3d — по объёмным точкам: так угол в колене или локте меньше искажается, если телефон стоит не строго сбоку. */
+const angle3 = (c: Ctx, a: Joint, b: Joint, d: Joint, side: Side = c.side) => {
+  const a3 = c.config.smoothing.angles3d;
+  const w = a3 === true || (Array.isArray(a3) && c.ex !== undefined && a3.includes(c.ex)) ? c.f.world : undefined;
+  if (w && w.length >= 33) return angleAt3(w[J(side, a)], w[J(side, b)], w[J(side, d)]);
+  return angleAt(P(c, a, side), P(c, b, side), P(c, d, side));
+};
 const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 /** Боком к камере: ширина плеч по горизонтали меньше половины длины корпуса. */
 // Необязательные параметры из предложенных исправлений (нет в config.json — поведение прежнее).
-const opt = (c: Ctx) => c.config.position as unknown as { maxFrontRatio?: number };
+const opt = (c: Ctx) => c.config.position;
 /** Мягкий порог ракурса во время повторения, если он задан для упражнения (motionSideRatio / motionFrontRatio). */
 const motionOpt = (c: Ctx, ex: Exercise | undefined, key: 'motionSideRatio' | 'motionFrontRatio') =>
   ex ? ((c.config.exercises[ex] as Record<string, unknown>)[key] as number | undefined) : undefined;
@@ -66,7 +75,8 @@ const motionOpt = (c: Ctx, ex: Exercise | undefined, key: 'motionSideRatio' | 'm
 function sideView(c: Ctx, mode: PosMode = 'stance', ex?: Exercise): boolean {
   const r = shoulderRatio(c.f);
   const m = mode === 'motion' ? motionOpt(c, ex, 'motionSideRatio') : undefined;
-  const max = m ?? c.config.position.maxSideRatio;
+  const h = (c.config.position.viewHysteresis ?? 0) * (c.viewOk === undefined ? 0 : c.viewOk ? 1 : -1);
+  const max = (m ?? c.config.position.maxSideRatio) + h;
   return Number.isNaN(r) || r <= max;
 }
 
@@ -74,9 +84,10 @@ function sideView(c: Ctx, mode: PosMode = 'stance', ex?: Exercise): boolean {
 function frontView(c: Ctx, mode: PosMode = 'stance', ex?: Exercise): boolean {
   const r = shoulderRatio(c.f);
   const m = mode === 'motion' ? motionOpt(c, ex, 'motionFrontRatio') : undefined;
-  const min = m ?? c.config.position.minFrontRatio;
+  const h = (c.config.position.viewHysteresis ?? 0) * (c.viewOk === undefined ? 0 : c.viewOk ? 1 : -1);
+  const min = (m ?? c.config.position.minFrontRatio) - h;
   // слишком «широкие» плечи при коротком корпусе — человек наклонился к камере (бёрпи, наклон), а не стоит лицом
-  return !Number.isNaN(r) && r >= min && r <= (opt(c).maxFrontRatio ?? Infinity);
+  return !Number.isNaN(r) && r >= min && r <= (opt(c).maxFrontRatio ?? Infinity) + h;
 }
 
 /** Насколько линия плеч вертикальна в пространстве (worldLandmarks), градусы. В боковой планке ~70–90°, в обычной < 30°. */

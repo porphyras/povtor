@@ -120,3 +120,34 @@ export function median3(a: number[]): number {
   const s = a.slice(-3).sort((x, y) => x - y);
   return s[Math.floor((s.length - 1) / 2)];
 }
+
+/** Фильтр One Euro (Casiez и др., 2012) для одной координаты. dt — в секундах. */
+export class OneEuro {
+  private x: number | null = null;
+  private dx = 0;
+  private t = 0;
+  constructor(
+    private minCutoff: number,
+    private beta: number,
+    private dCutoff: number,
+  ) {}
+  private static alpha(cutoff: number, dt: number): number {
+    const tau = 1 / (2 * Math.PI * cutoff);
+    return 1 / (1 + tau / dt);
+  }
+  filter(v: number, tMs: number): number {
+    if (this.x === null || !Number.isFinite(this.x)) {
+      this.x = v;
+      this.dx = 0;
+      this.t = tMs;
+      return v;
+    }
+    const dt = Math.max(1e-3, (tMs - this.t) / 1000);
+    this.t = tMs;
+    const dv = (v - this.x) / dt;
+    this.dx += OneEuro.alpha(this.dCutoff, dt) * (dv - this.dx);
+    const cutoff = this.minCutoff + this.beta * Math.abs(this.dx);
+    this.x += OneEuro.alpha(cutoff, dt) * (v - this.x);
+    return this.x;
+  }
+}

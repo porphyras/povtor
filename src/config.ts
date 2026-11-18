@@ -32,9 +32,23 @@ export interface AppConfig {
   camera: { width: number; height: number; fps: number };
   model: { desktop: 'lite' | 'full'; mobile: 'lite' | 'full'; minDetection: number; minPresence: number; minTracking: number };
   visibility: { min: number; lostAfterMs: number };
-  smoothing: { tauMs: number; gapResetMs: number };
+  smoothing: {
+    tauMs: number;
+    gapResetMs: number;
+    /** Углы суставов по объёмным точкам (worldLandmarks) вместо точек на кадре: меньше зависят от ракурса. */
+    angles3d?: boolean | Exercise[];
+  };
   calibration: { topMargin: number; startMargin: number };
-  position: { maxSideRatio: number; minFrontRatio: number; maxTorsoTilt: number; maxBodyTilt: number; maxLyingTilt: number };
+  position: {
+    maxSideRatio: number;
+    minFrontRatio: number;
+    maxTorsoTilt: number;
+    maxBodyTilt: number;
+    maxLyingTilt: number;
+    maxFrontRatio?: number;
+    /** Запас у порога ракурса: верный ракурс теряется, только если уйти за порог на столько, а возвращается — если вернуться на столько же внутрь. */
+    viewHysteresis?: number;
+  };
   prepare: { readyHoldMs: number; countdownSec: number };
   exercises: Record<Exercise, RepConfig | HoldConfig>;
   feedback: { minTipIntervalMs: number; tipVisibleMs: number; holdVoiceEverySec: number };
@@ -78,6 +92,11 @@ export function validateConfig(raw: unknown): AppConfig {
   num(c.calibration?.startMargin, 'calibration.startMargin', 0, 90);
   if (!(c.calibration.startMargin > c.calibration.topMargin)) throw new Error('config.json: нужно startMargin > topMargin');
   for (const k of ['maxSideRatio', 'minFrontRatio'] as const) num(c.position?.[k], `position.${k}`, 0, 2);
+  if (c.position.maxFrontRatio !== undefined) num(c.position.maxFrontRatio, 'position.maxFrontRatio', 0, 10);
+  if (c.position.viewHysteresis !== undefined) num(c.position.viewHysteresis, 'position.viewHysteresis', 0, 0.3);
+  const a3 = c.smoothing?.angles3d;
+  if (a3 !== undefined && typeof a3 !== 'boolean' && !(Array.isArray(a3) && a3.every((x) => (REP_EXERCISES as string[]).includes(x) || (HOLD_EXERCISES as string[]).includes(x))))
+    throw new Error('config.json: smoothing.angles3d — true, false или список упражнений');
   for (const k of ['maxTorsoTilt', 'maxBodyTilt', 'maxLyingTilt'] as const) num(c.position?.[k], `position.${k}`, 0, 90);
   num(c.prepare?.readyHoldMs, 'prepare.readyHoldMs', 0, 10000);
   num(c.prepare?.countdownSec, 'prepare.countdownSec', 0, 10);
