@@ -113,6 +113,10 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 .session {
   position: fixed; inset: 0; max-width: none; padding: 0; background: #000; color: #fff; overflow: hidden;
 }
+.stage-wrap { position: absolute; inset: 0; }
+/* на телефоне панели как блока нет: её элементы лежат поверх видео */
+.panel { display: contents; }
+.panel-hint { display: none; }
 .stage { position: absolute; inset: 0; }
 .cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .session.mirror .cam { transform: scaleX(-1); }
@@ -138,7 +142,7 @@ h2 { font-size: 18px; margin: 0 0 8px; }
   text-align: center; max-width: 92vw;
 }
 /* статус всегда у нижнего края, чтобы не закрывать человека */
-.prepare .pill { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(40px + env(safe-area-inset-bottom)); width: max-content; }
+.session .pill { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(40px + env(safe-area-inset-bottom)); width: max-content; }
 .pill.ok { background: rgba(70, 180, 100, 0.95); color: #04170a; }
 .countdown {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -217,3 +221,61 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 .setlist .when { color: var(--muted); font-size: 14px; grid-column: 1; }
 .setlist .what { grid-column: 1; }
 .setlist .count { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-variant-numeric: tabular-nums; }
+
+/* ---------- широкий экран: компьютер, планшет или повёрнутый телефон ---------- */
+@media (orientation: landscape) and (min-width: 900px) {
+  .screen.home, .screen.history { max-width: 1120px; padding-left: 32px; padding-right: 32px; }
+  h1 { font-size: 36px; }
+
+  /* главная: упражнения по четыре в ряд, внизу две колонки */
+  .home-head { margin: 16px 0 28px; }
+  .group { margin-bottom: 26px; }
+  .choices { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .choice { min-height: 136px; padding: 18px 18px 16px; }
+  .choice svg { width: 44px; height: 44px; }
+  .choice-name { font-size: 18px; }
+  .home-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; margin-top: 8px; }
+  .home-foot .how { margin-bottom: 0; }
+  .home-side .row { padding-top: 6px; }
+
+  /* итог: шире, кнопки в ряд */
+  .screen.summary { max-width: 760px; padding-left: 32px; padding-right: 32px; padding-top: max(40px, 8vh); }
+  .num { padding: 20px 22px; }
+  .num b { font-size: 72px; }
+  .summary .btns.column { flex-direction: row; }
+
+  /* история: слева график и кнопки, справа список подходов */
+  .history-body { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 0 28px; align-items: start; }
+  .history-body > .chart-box { grid-column: 1; grid-row: 1; margin: 0; }
+  .history-body > .btns { grid-column: 1; grid-row: 2; }
+  .history-body > .setlist { grid-column: 2; grid-row: 1 / span 2; }
+  .history-body > .empty, .history-body > p { grid-column: 1 / -1; }
+
+  /* подход: видео слева целиком, справа панель со счётом и подсказками */
+  .session { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 30vw, 440px); grid-template-rows: minmax(0, 1fr); }
+  .stage-wrap { position: relative; inset: auto; grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; }
+  .panel {
+    display: flex; flex-direction: column; gap: 16px; grid-column: 2; grid-row: 1; min-height: 0;
+    overflow-x: hidden; overflow-y: auto; background: #11161c; border-left: 1px solid rgba(255, 255, 255, 0.08);
+    padding: calc(16px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
+  }
+  .panel .topbar { position: static; padding: 0; background: none; }
+  .panel .topbar .title { font-size: 22px; }
+  .panel-hint { display: block; margin: 0; font-size: 20px; line-height: 1.4; color: #d5dbe2; }
+  .prepare .hint { display: none; }
+  .prepare { padding: 24px; }
+  .session .pill { position: static; transform: none; width: auto; max-width: none; padding: 14px 18px; border-radius: 16px; font-size: 22px; }
+  .panel .counter {
+    position: static; width: 100%; min-width: 0; padding: 0 16px; flex: none;
+    height: clamp(130px, 40vh, 360px); border-radius: 32px; font-size: clamp(84px, 28vh, 250px);
+  }
+  .panel .counter.time { height: clamp(110px, 30vh, 280px); font-size: clamp(60px, 17vh, 160px); }
+  .panel .counter.pulse { animation-name: pulse-soft; }
+  .panel .tip { position: static; transform: none; width: auto; max-width: none; font-size: clamp(22px, 3.4vh, 30px); }
+  .panel .bottombar { position: static; margin-top: auto; padding: 0; }
+  .panel .finish { max-width: none; }
+  .paused { font-size: 32px; }
+  .devpanel { left: 8px; right: auto; top: 8px; max-width: 60vw; }
+}
+/* в узкой панели счётчик почти во всю ширину — увеличиваем его слабее, чтобы не вылезал за края */
+@keyframes pulse-soft { 0% { transform: scale(1.06); } 100% { transform: scale(1); } }

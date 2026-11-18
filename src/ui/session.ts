@@ -73,7 +73,9 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
   const statusPill = h('div', { class: 'pill', id: 'status' }, '…');
   const silhouette = svg(SILHOUETTES[info.silhouette].svg);
   const hintEl = h('p', { class: 'hint' }, info.setup);
-  const prepare = h('div', { class: 'prepare hidden' }, silhouette, hintEl, statusPill);
+  // на широком экране подсказка «как встать» живёт в боковой панели, а не поверх видео
+  const panelHint = h('p', { class: 'panel-hint hidden' }, info.setup);
+  const prepare = h('div', { class: 'prepare hidden' }, silhouette, hintEl);
   const countdownEl = h('div', { class: 'countdown hidden', id: 'countdown' });
   const loadingText = h('p', null, 'Загружаем модель…');
   const bar = h('div', { class: 'bar-fill' });
@@ -93,7 +95,11 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     h('span', { class: 'title' }, info.name),
     fileMode ? (dev.dev ? h('span', { class: 'badge' }, 'видеофайл') : null) : switchBtn,
   );
-  const view = h('main', { class: 'screen session' }, stage, prepare, countdownEl, counter, paused, tip, top, h('div', { class: 'bottombar' }, finishBtn), loading, errorBox, devPanel);
+  // Две части: видео и панель. На телефоне панель «растворяется» (display: contents) и её элементы лежат поверх видео,
+  // на широком экране она становится колонкой справа, чтобы счёт и подсказки не закрывали человека.
+  const stageWrap = h('div', { class: 'stage-wrap' }, stage, prepare, countdownEl, paused);
+  const panel = h('div', { class: 'panel' }, top, panelHint, statusPill, counter, tip, h('div', { class: 'bottombar' }, finishBtn));
+  const view = h('main', { class: 'screen session' }, stageWrap, panel, loading, errorBox, devPanel);
   root.append(view);
 
   // ---------- состояние ----------
@@ -128,6 +134,8 @@ export function renderSession(root: HTMLElement, app: App, exercise: Exercise): 
     show(loading, p === 'loading');
     show(errorBox, p === 'error');
     show(prepare, p === 'prepare');
+    show(statusPill, p === 'prepare');
+    show(panelHint, p === 'prepare' || p === 'countdown');
     show(countdownEl, p === 'countdown');
     show(counter, p === 'counting');
     show(finishBtn, p === 'counting');

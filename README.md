@@ -33,7 +33,8 @@ npm run dev        # http://127.0.0.1:5173
 | `npm test` | юнит-тесты анализатора (Vitest) |
 | `npm run e2e` | прогон приложения в Chromium по видеофайлам из `test-videos/`, `-- --browser=webkit` для движка Safari |
 | `node e2e/camera.mjs` | полный путь через фейковую камеру Chrome: подготовка, отсчёт, счёт, итог, история, CSV |
-| `npm run screens` | скриншоты экранов в `e2e/out/` |
+| `npm run screens` | скриншоты экранов телефона в `e2e/out/` |
+| `npm run screens:wide -- --width=1440 --height=900` | скриншоты на широком экране (компьютер, планшет) |
 
 Видео для e2e в репозиторий не входят (см. `test-videos/SOURCES.txt`), их нужно положить в `test-videos/`.
 
