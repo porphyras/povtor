@@ -1,0 +1,7 @@
+node_modules
+dist
+public/wasm
+test-videos
+e2e/out
+*.log
+.DS_Store

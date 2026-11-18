@@ -1,0 +1,21 @@
+{
+  "version": "1.1",
+  "camera": { "width": 640, "height": 480, "fps": 30 },
+  "model": { "desktop": "full", "mobile": "full", "minDetection": 0.5, "minPresence": 0.5, "minTracking": 0.5 },
+  "visibility": { "min": 0.6, "lostAfterMs": 1000 },
+  "smoothing": { "tauMs": 130, "gapResetMs": 500 },
+  "calibration": { "topMargin": 10, "startMargin": 20 },
+  "position": { "squatMaxTorsoTilt": 30, "pushupMaxBodyTilt": 45, "maxShoulderRatio": 0.5 },
+  "prepare": { "readyHoldMs": 1000, "countdownSec": 3 },
+  "squat": { "signal": "angle2d", "top": 160, "start": 150, "attempt": 120, "topHoldMs": 500, "minRepMs": 400, "maxThighAngle": 15, "maxLean": 55 },
+  "pushup": { "signal": "angle2d", "top": 155, "start": 145, "attempt": 120, "topHoldMs": 500, "minRepMs": 400, "clean": 90, "minBodyLine": 160, "bodyLineHoldMs": 250 },
+  "feedback": { "minTipIntervalMs": 2000, "tipVisibleMs": 2000 },
+  "set": { "idleStopMs": 60000, "maxDurationMs": 600000, "maxReps": 200 },
+  "errors": [
+    { "code": "SQUAT_DEPTH", "exercise": "squat", "screen": "Ниже", "voice": "Ниже", "priority": 1 },
+    { "code": "SQUAT_LEAN", "exercise": "squat", "screen": "Наклон вперёд", "voice": "Спину ровнее", "priority": 2 },
+    { "code": "PUSHUP_HIP_SAG", "exercise": "pushup", "screen": "Таз провисает", "voice": "Таз провисает", "priority": 1 },
+    { "code": "PUSHUP_HIP_PIKE", "exercise": "pushup", "screen": "Таз задран", "voice": "Опусти таз", "priority": 1 },
+    { "code": "PUSHUP_DEPTH", "exercise": "pushup", "screen": "Ниже", "voice": "Ниже", "priority": 2 }
+  ]
+}
